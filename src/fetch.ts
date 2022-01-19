@@ -4,8 +4,13 @@ import * as path from "path";
 import gitClone from "git-clone/promise";
 import fined from "fined";
 import fs from "fs";
+import { Command, program } from "commander";
+
 const library: string = process.argv[2] ?? "webpack";
 const octokit = new Octokit();
+
+const ROOT_PATH = path.resolve(__dirname,'..');
+const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
 
 /**
  * Fetches repositories from GitHub
@@ -25,15 +30,11 @@ async function fetchRepositoriesByLibrary(
     const response = await octokit.rest.search.repos({
         q: library + "+in:package.json+language:javascript+archived:false+is:public",
         ...queryParams,
-        page: 1,
+        page: 2,
     });
     const data = response.data;
     const cloneActions: Promise<string>[] = data.items.map(cloneRepository);
     const repositoryPaths = await Promise.all(cloneActions);
-
-    for (const clonePath of repositoryPaths) {
-        analyseRepository(clonePath);
-    }
 }
 
 function findPackageJSONPath(repoPath: fs.PathLike): fs.PathLike | null {
@@ -48,35 +49,90 @@ function findPackageJSONPath(repoPath: fs.PathLike): fs.PathLike | null {
     return packageJSONPaths?.path ?? null;
 }
 
-function parsePackageJSON(packagePath: fs.PathLike) {
+function parsePackageJSON(packagePath: fs.PathLike): Record<string, string> {
     const packageJSON = require("" + packagePath);
     const dependencies = packageJSON.dependencies;
     const devDependencies = packageJSON.devDependencies;
     const peerDependencies = packageJSON.peerDependencies;
     const optionalDependencies = packageJSON.optionalDependencies;
     const allDependencies = { ...dependencies, ...devDependencies, ...peerDependencies, ...optionalDependencies };
-    console.log(allDependencies);
+    return allDependencies;
+}
+
+function isWebpackProject(packageJSONDependencies: Record<string,string>): boolean{
+    if (packageJSONDependencies.hasOwnProperty("webpack")) {
+        return true;
+    }
+    if (packageJSONDependencies.hasOwnProperty("angular")) {
+        return true;
+    }
+    return false;
 }
 
 function analyseRepository(repoPath: fs.PathLike): void {
     const packageJSONPath = findPackageJSONPath(repoPath);
-    if (packageJSONPath) {
-        parsePackageJSON(packageJSONPath);
+    if (!packageJSONPath) {
+        console.log(`❌ No package.json found`);
+        return;
+    }
+    const packageJSONDependencies = parsePackageJSON(packageJSONPath);
+    if (!isWebpackProject(packageJSONDependencies)){
+        console.log("⚠️  Not a webpack project");
     }
 }
 
 async function cloneRepository(repo: any): Promise<string> {
+    fs.mkdirSync(REPOSITORIES_PATH, { recursive: true });
     //id,name,created_at,stargazers_count
     console.log("Project " + repo.name);
     console.log("Cloning...");
-    const repoPath = path.normalize(path.resolve(__dirname) + "/../repositories/" + repo.id);
+    const repoPath = path.resolve(REPOSITORIES_PATH, repo.name);
+    const isAlreadyClone = fs.existsSync(repoPath);
+    if (isAlreadyClone) {
+        console.log("Already cloned");
+        return repoPath;
+    }
     await gitClone(repo.clone_url, repoPath);
     console.log("Analysing...");
     console.log("As .eslintrc => " + (fined({ path: repoPath, name: ".eslintrc" }) ? "yes" : "no"));
 
     return repoPath;
 }
+
+interface Arguments {
+    local: boolean;
+    library: string;
+    limit: number;
+}
+function extractArguments(): Arguments {
+    const program = new Command();
+    program.version("0.0.1");
+
+    program
+        .option("-l, --local", "Local mode without downloading from GitHub")
+        .option("--library <string>", "Library to search for", "webpack")
+        .option("--limit <number>", "Limit the number of repositories to download", '10');
+    program.parse(process.argv);
+    const options = program.opts();
+    return {
+        local: options.local,
+        library: options.library,
+        limit: options.limit,
+    };
+}
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
-    await fetchRepositoriesByLibrary(library, {});
+    const args = extractArguments();
+    if (!args.local){
+        await fetchRepositoriesByLibrary(library, {
+            per_page: args.limit,       
+        });
+    }
+    const localRepositories = (await fs.promises.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
+        .filter((dirent) => dirent.isDirectory());
+
+    for (const localRepository of localRepositories) {
+        console.log(`Analysing ${localRepository.name}`);
+        analyseRepository(path.resolve(REPOSITORIES_PATH,localRepository.name));
+    }
 })();
