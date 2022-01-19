@@ -1,10 +1,9 @@
-/* eslint-disable no-shadow */
 import { Octokit } from "@octokit/rest";
 import * as path from "path";
 import gitClone from "git-clone/promise";
-import fined from "fined";
-import fs from "fs";
-import { Command, program } from "commander";
+import fs from "fs/promises";
+import { existsSync, PathLike } from "fs";
+import { Command } from "commander";
 
 const library: string = process.argv[2] ?? "webpack";
 const octokit = new Octokit();
@@ -37,20 +36,19 @@ async function fetchRepositoriesByLibrary(
     const repositoryPaths = await Promise.all(cloneActions);
 }
 
-function findPackageJSONPath(repoPath: fs.PathLike): fs.PathLike | null {
-    const packageJSONPath = path.normalize(repoPath + "/package.json");
-    if (fs.existsSync(packageJSONPath)) {
-        return packageJSONPath;
-    }
-    const packageJSONPaths = fined({
-        path: repoPath.toLocaleString(),
-        name: "package.json",
-    });
-    return packageJSONPaths?.path ?? null;
+async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike | null> {
+    const packageJSONPaths = await findFile("package.json",repoPath );
+    return packageJSONPaths;
 }
 
-function parsePackageJSON(packagePath: fs.PathLike): Record<string, string> {
-    const packageJSON = require("" + packagePath);
+async function parsePackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
+    const rowData = await fs.readFile(packagePath, "utf8");
+    let packageJSON: Record<string, any> = {};
+    try {
+        packageJSON = JSON.parse(rowData);
+    } catch (e) {
+        console.log(`❌ Error parsing package.json: ${e}`);
+    }
     const dependencies = packageJSON.dependencies;
     const devDependencies = packageJSON.devDependencies;
     const peerDependencies = packageJSON.peerDependencies;
@@ -69,33 +67,56 @@ function isWebpackProject(packageJSONDependencies: Record<string,string>): boole
     return false;
 }
 
-function analyseRepository(repoPath: fs.PathLike): void {
-    const packageJSONPath = findPackageJSONPath(repoPath);
+async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
+    const files = await getFiles(localRepositoryPath);
+    const isContaintESLintFile = files.find((file) => path.basename(file).includes("eslintrc"));
+    return !!isContaintESLintFile;
+}
+
+
+/**
+ * Formats log messages to handle GitHub's repository names
+ * Example : 101085586-limit_login_to_ip| ❌ No package.json found
+ */
+function formatedLog(repositoryGithub: string,message?: any, ...optionalParams: any[]){
+    const formattedRepositoryName = repositoryGithub
+    .slice(0,repositoryGithub.lastIndexOf("-"))
+    .slice(0,15);
+    console.log(`${formattedRepositoryName.padEnd(15)}| ${message}`, ...optionalParams);
+}
+
+async function analyseRepository(repoPath: PathLike): Promise<void> {
+    const repoName = path.basename(repoPath.toLocaleString());
+    formatedLog(repoName,`Analysing...`);
+    const packageJSONPath = await findPackageJSONPath(repoPath);
     if (!packageJSONPath) {
-        console.log(`❌ No package.json found`);
+        formatedLog(repoName,`❌ No package.json found`);
         return;
     }
-    const packageJSONDependencies = parsePackageJSON(packageJSONPath);
+    const packageJSONDependencies = await parsePackageJSON(packageJSONPath);
     if (!isWebpackProject(packageJSONDependencies)){
-        console.log("⚠️  Not a webpack project");
+        formatedLog(repoName,`⚠️  Not a webpack project`);
+    }
+
+    if(!(await isESLintProject(repoPath))){
+        formatedLog(repoName,`⚠️  Not a ESLint project`);
     }
 }
 
 async function cloneRepository(repo: any): Promise<string> {
-    fs.mkdirSync(REPOSITORIES_PATH, { recursive: true });
     //id,name,created_at,stargazers_count
     console.log("Project " + repo.name);
     console.log("Cloning...");
-    const repoPath = path.resolve(REPOSITORIES_PATH, repo.name);
-    const isAlreadyClone = fs.existsSync(repoPath);
+    const repoPath = path.resolve(REPOSITORIES_PATH, `${repo.name}-${repo.id}`);
+    const isAlreadyClone = existsSync(repoPath);
     if (isAlreadyClone) {
         console.log("Already cloned");
         return repoPath;
     }
-    await gitClone(repo.clone_url, repoPath);
+    await fs.mkdir(repoPath, { recursive: true });
+    await fs.writeFile(path.resolve(repoPath, "info.json"), JSON.stringify(repo, null, 2));
+    await gitClone(repo.clone_url, path.resolve(repoPath, `${repo.name}-${repo.id}`));
     console.log("Analysing...");
-    console.log("As .eslintrc => " + (fined({ path: repoPath, name: ".eslintrc" }) ? "yes" : "no"));
-
     return repoPath;
 }
 
@@ -120,6 +141,27 @@ function extractArguments(): Arguments {
         limit: options.limit,
     };
 }
+
+async function getFiles(dir: PathLike): Promise<string[]> {
+    const subdirs = await fs.readdir(dir);
+    const files = await Promise.all(subdirs.map(async (subdir) => {
+      const res = path.resolve(dir.toLocaleString(), subdir);
+      const stat = await fs.lstat(res);
+      return stat.isDirectory() && !stat.isSymbolicLink() ? getFiles(res) : [res];
+    }));
+    if( files.length === 0 ){
+        return [];
+    }
+    const result = files.reduce((a, f) => a.concat(f,[]));
+    return result;
+}
+
+async function findFile(name: string, dir: PathLike): Promise<string | null> {
+    const files = await getFiles(dir);
+    const found = files.find((file) => file.endsWith(name));
+    return found ?? null;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     const args = extractArguments();
@@ -128,11 +170,14 @@ function extractArguments(): Arguments {
             per_page: args.limit,       
         });
     }
-    const localRepositories = (await fs.promises.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
+    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
         .filter((dirent) => dirent.isDirectory());
 
+    // await analyseRepository(path.resolve(REPOSITORIES_PATH,'97060575-raf-schd','97060575-raf-schd'))
+    const tasks = new Array<Promise<any>>();
     for (const localRepository of localRepositories) {
-        console.log(`Analysing ${localRepository.name}`);
-        analyseRepository(path.resolve(REPOSITORIES_PATH,localRepository.name));
+        tasks.push(analyseRepository(path.resolve(REPOSITORIES_PATH,localRepository.name,localRepository.name)));
     }
+    await Promise.all(tasks);
 })();
+

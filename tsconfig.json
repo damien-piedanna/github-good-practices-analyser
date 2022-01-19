@@ -98,6 +98,10 @@
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
   "exclude": [
-    "./repositories"
+    "./repositories",
+    "./node_modules",
+    ".eslintrc.js",
+    ".eslintignore",
+    "./dist",
   ]
 }
