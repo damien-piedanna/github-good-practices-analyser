@@ -1,17 +1,15 @@
 # si5-rimel-github-parser
 
-
-## Commandes
+## Commands
 
 ### First time
 `npm ci`
 
-### To analyse all local repositories 
-`npm run run -- --local`
+### Retrieves and clones projects from GitHub according to the query options
+`npm run fetch`
 
-### To download + analyse GitHub repositories 
-`npm run run`
+### Analyze good project practices according to WebPack
+`npm run analyze`
 
-### Help on availble option
-`npm run run -- --help`
-
+### Help on available option
+`npm run <cmd> -- --help`

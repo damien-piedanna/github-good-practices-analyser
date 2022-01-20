@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "prerun": "rimraf dist && tsc",
-    "run": "node dist/fetch",
+    "fetch": "rimraf dist && tsc && node dist/commands/fetch",
+    "categorize": "rimraf dist && tsc && node dist/commands/categorize",
+    "analyze": "rimraf dist && tsc && node dist/commands/analyze",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
