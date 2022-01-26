@@ -1,8 +1,10 @@
 import * as path from "path";
-import {PathLike} from "fs";
+import { PathLike } from "fs";
 import fs from "fs/promises";
+import { db } from "./database";
 
-export const ROOT_PATH = path.resolve(__dirname,'..');
+export const ROOT_PATH = path.resolve(__dirname,'../..');
+console.log(ROOT_PATH);
 export const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
 export const CATEGORIES = ['native', 'react', 'vue'];
 
@@ -46,4 +48,17 @@ export async function findFile(name: string, dir: PathLike): Promise<string | nu
     const files = await getFilesFromDirectory(dir);
     const found = files.find((file) => file.endsWith(name));
     return found ?? null;
+}
+
+/**
+ * Clean the database and downloaded repositories
+ */
+export async function reset() {
+    //Delete repositories folder
+    const folderContent = await fs.readdir(REPOSITORIES_PATH, { withFileTypes: true });
+    folderContent
+        .filter((item) => item.isDirectory())
+        .map((item) => fs.rm( path.resolve(REPOSITORIES_PATH, item.name), {recursive: true}));
+    //Delete from database
+    await db.sync({force: true});
 }

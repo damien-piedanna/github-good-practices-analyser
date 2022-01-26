@@ -1,8 +1,8 @@
 import * as path from "path";
 import fs from "fs/promises";
-import {CATEGORIES, findFile, formattedLog, getFilesFromDirectory, REPOSITORIES_PATH} from "../helper";
-import {PathLike} from "fs";
-import {Command, Option} from "commander";
+import { CATEGORIES, findFile, formattedLog, getFilesFromDirectory, REPOSITORIES_PATH } from "../tools/helper";
+import { PathLike } from "fs";
+import { Command, Option } from "commander";
 
 interface Arguments {
     category: string;

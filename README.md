@@ -11,5 +11,5 @@
 ### Analyze good project practices according to WebPack
 `npm run analyze`
 
-### Help on available option
+### Help on available options
 `npm run <cmd> -- --help`
