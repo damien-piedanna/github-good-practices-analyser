@@ -69,7 +69,7 @@ function isWebpackProject(packageJSONDependencies: Record<string,string>): boole
 
 async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
     const files = await getFilesFromDirectory(localRepositoryPath);
-    const isContainESLintFile = files.find((file) => path.basename(file).includes("eslintrc"));
+    const isContainESLintFile = files.find((file) => path.basename(file).match("eslintrc"));
     return !!isContainESLintFile;
 }
 
@@ -79,7 +79,7 @@ async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
 
     const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
         .filter((dirent) => dirent.isDirectory());
-
+    console.log(localRepositories.map((repo) => repo.name));
     const tasks = new Array<Promise<any>>();
     for (const localRepository of localRepositories) {
         tasks.push(analyseRepository(localRepository.name, path.resolve(REPOSITORIES_PATH,localRepository.name,'source')));
