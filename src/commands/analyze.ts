@@ -67,6 +67,52 @@ function isWebpackProject(packageJSONDependencies: Record<string,string>): boole
     return false;
 }
 
+async function countDependencies() {
+    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
+    .filter((dirent) => dirent.isDirectory());
+    const packageJSONPromises = localRepositories.map(async (repository) => {
+        const packageJSONPath = await findPackageJSONPath(path.resolve(REPOSITORIES_PATH, repository.name));
+        if (!packageJSONPath) {
+            formattedLog(repository.name,`❌ No package.json found`);
+            return;
+        }
+        const rowData = await fs.readFile(packageJSONPath, "utf8");
+        let packageJSON: Record<string, any> = {};
+        try {
+            packageJSON = JSON.parse(rowData);
+        } catch (e) {
+            console.log(`❌ Error parsing package.json: ${e}`);
+        }
+        const dependencies = packageJSON.dependencies;
+        const devDependencies = packageJSON.devDependencies;
+        return {
+            dependencies: dependencies,
+            devDependencies: devDependencies,
+        };
+    });
+    const packageJSONs = await Promise.all(packageJSONPromises);
+    const dependenciesCounter: Map<string,number> = new Map();
+    const devDependenciesCounter: Map<string,number> = new Map();
+    packageJSONs.forEach((packageJSON) => {
+        const keyDependencies = Object.keys(packageJSON?.dependencies ?? {});
+        if (keyDependencies?.length > 0) {
+            keyDependencies.map((dependency: string) => {
+                dependenciesCounter.set(dependency, (dependenciesCounter.get(dependency) ?? 0) + 1);
+            });
+        }
+        
+        const keyDevDependencies = Object.keys(packageJSON?.devDependencies ?? {});
+        if (keyDevDependencies?.length > 0) {
+            keyDevDependencies.map((dependency: string) => {
+                devDependenciesCounter.set(dependency, (devDependenciesCounter.get(dependency) ?? 0) + 1);
+            });
+        }
+    });
+    
+    console.log(Array.from(dependenciesCounter).sort((a, b) => b[1] - a[1]));
+    console.log(Array.from(devDependenciesCounter).sort((a, b) => b[1] - a[1]));
+}
+
 async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
     const files = await getFilesFromDirectory(localRepositoryPath);
     const isContainESLintFile = files.find((file) => path.basename(file).match("eslintrc"));
@@ -76,6 +122,8 @@ async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     const args = extractArguments();
+
+    await countDependencies();
 
     const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
         .filter((dirent) => dirent.isDirectory());
