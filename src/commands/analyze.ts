@@ -6,11 +6,12 @@ import {
     formattedLog,
     getFilesFromDirectory,
     REPOSITORIES_PATH,
+    resolveProjectDirectoryName,
 } from "../tools/helper";
 import { PathLike } from "fs";
 import { Command, Option } from "commander";
 import {
-    db, getRepositoriesByStatus, getRepositoriesByStatusAndCategory,
+    db, getAllRepository, getRepositoriesByStatus, getRepositoriesByStatusAndCategory,
     Repository
 } from "../tools/database";
 
