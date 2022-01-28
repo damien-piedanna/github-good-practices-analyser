@@ -73,13 +73,22 @@ export function resolveProjectDirectoryName(repo: Repository): string {
     return `${repo.name}_${repo.id}`;
 }
 
-export async function clearAvortClonningRepositories(){
+export async function clearAvortedClonningRepositories(){
     const localRepositories = await getRepositoriesFromLocalFiles();
     const repositoriesInDatabase = await getAllRepository();
-    const repositoriesToDelete = repositoriesInDatabase
+    const repositoriesToDeleteInLocal = localRepositories
+    .filter((localRepository) => !repositoriesInDatabase.find((repository) => localRepository.name === resolveProjectDirectoryName(repository)));
+    
+    await Promise.all(repositoriesToDeleteInLocal.map(async (repository) => {
+        console.log(`Deleting ${repository.name} in local`);
+        // await repository.destroy();
+        await fs.rm( path.resolve(REPOSITORIES_PATH, repository.name), {recursive: true});
+    }));
+    
+    const repositoriesToDeleteInDB = repositoriesInDatabase
     .filter((repository) => !localRepositories.find((localRepository) => localRepository.name === resolveProjectDirectoryName(repository)));
-    await Promise.all(repositoriesToDelete.map(async (repository) => {
+    await Promise.all(repositoriesToDeleteInDB.map(async (repository) => {
+        console.log(`Deleting ${repository.name} in DB`);
         await repository.destroy();
-        await fs.rm( path.resolve(REPOSITORIES_PATH, resolveProjectDirectoryName(repository)), {recursive: true});
     }));
 }

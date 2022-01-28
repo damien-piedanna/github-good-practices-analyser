@@ -4,7 +4,7 @@ import gitClone from 'git-clone/promise';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { Command } from 'commander';
-import { REPOSITORIES_PATH, reset } from '../tools/helper';
+import { clearAvortedClonningRepositories, REPOSITORIES_PATH, reset } from '../tools/helper';
 import { db, getAllRepository, saveRepository } from "../tools/database";
 
 const octokit = new Octokit();
@@ -14,6 +14,7 @@ interface Arguments {
     query: string;
     limit: number;
     reset: boolean;
+    clean: boolean;
 }
 function extractArguments(): Arguments {
     const program = new Command();
@@ -23,6 +24,7 @@ function extractArguments(): Arguments {
         .option('--query <string>', 'Query term in package.json', 'webpack')
         .option('--limit <number>', 'Limit the number of repositories to download', '10')
         .option('--reset', 'Clean the database and downloaded repositories before fetch')
+        .option('--clean', 'Clean the local repositories if they are not in DB')
         .parse(process.argv);
 
     const options = program.opts();
@@ -30,6 +32,7 @@ function extractArguments(): Arguments {
         query: options.query,
         limit: options.limit,
         reset: options.reset,
+        clean: options.clean,
     };
 }
 
@@ -55,18 +58,16 @@ function extractArguments(): Arguments {
  */
 async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number): Promise<any> {
     //Optimization if limit > PER_PAGE_MAX
-    const perPage = limit > PER_PAGE_MAX ? PER_PAGE_MAX : limit;
-    
     const alreadyLoadedRepositories = await getAllRepository();
 
     const repositories: any[] = [];
     process.stdout.write(`\rRetrieve from Github... ${repositories.length}/${limit}`);
     let page = 1;
-    while (repositories.length < limit && page <= 2) {
+    while (repositories.length < limit) {
         // eslint-disable-next-line no-await-in-loop
         const githubResponse = await githubCall({
             termInPackageJson: termInPackageJson,
-            per_page: perPage,
+            per_page: 100,
             page: page,
         });
         //Cleaning data
@@ -114,6 +115,11 @@ async function saveRawRepository(repo: any): Promise<void> {
 (async () => {
     const args = extractArguments();
     await db.sync();
+
+    if(args.clean){
+        console.log('Clean avorted clonning repositories');
+        await clearAvortedClonningRepositories();
+    }
 
     if (args.reset) {
         console.log('Reset...');

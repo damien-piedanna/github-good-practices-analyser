@@ -12,7 +12,7 @@ interface RepositoryAttributes {
     name: string;
     category: string;
 }
-class Repository extends Model<RepositoryAttributes> {
+export class Repository extends Model<RepositoryAttributes> {
     declare id: number;
     declare name: string;
     declare category: string;
