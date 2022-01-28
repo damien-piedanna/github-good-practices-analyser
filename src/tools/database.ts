@@ -12,7 +12,11 @@ interface RepositoryAttributes {
     name: string;
     category: string;
 }
-class Repository extends Model<RepositoryAttributes> {}
+class Repository extends Model<RepositoryAttributes> {
+    declare id: number;
+    declare name: string;
+    declare category: string;
+}
 Repository.init({
     id: {
         type: DataTypes.INTEGER,
@@ -29,8 +33,8 @@ Repository.init({
  * Save a repository in the database
  * @param repository
  */
-export function saveRepository(repository: RepositoryAttributes): Promise<Repository> {
-    return Repository.create(repository);
+export function saveRepository(repository: RepositoryAttributes): Promise<[Repository, (boolean | null)]> {
+    return Repository.upsert(repository);
 }
 
 /**
