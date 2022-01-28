@@ -15,7 +15,7 @@ export const CATEGORIES = ['native', 'react', 'vue'];
  * @param message
  * @param optionalParams
  */
-export function formattedLog(repositoryGithub: string,message?: any, ...optionalParams: any[]){
+export function formattedLog(repositoryGithub: string,message?: any, ...optionalParams: any[]) {
     const formattedRepositoryName = repositoryGithub
         .slice(0,repositoryGithub.lastIndexOf("-"))
         .slice(0,15);
@@ -48,6 +48,33 @@ export async function findFile(name: string, dir: PathLike): Promise<string | nu
     const files = await getFilesFromDirectory(dir);
     const found = files.find((file) => file.endsWith(name));
     return found ?? null;
+}
+
+/**
+ * Fin package.json in a directory
+ * @param repoPath
+ */
+export async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike | null> {
+    return await findFile("package.json", repoPath);
+}
+
+/**
+ * Parse package.json and extract dependencies
+ * @param packagePath
+ */
+export async function parsePackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
+    const rowData = await fs.readFile(packagePath, "utf8");
+    let packageJSON: Record<string, any> = {};
+    try {
+        packageJSON = JSON.parse(rowData);
+    } catch (e) {
+        console.log(`❌ Error parsing package.json: ${e}`);
+    }
+    const dependencies = packageJSON.dependencies;
+    const devDependencies = packageJSON.devDependencies;
+    const peerDependencies = packageJSON.peerDependencies;
+    const optionalDependencies = packageJSON.optionalDependencies;
+    return {...dependencies, ...devDependencies, ...peerDependencies, ...optionalDependencies};
 }
 
 /**

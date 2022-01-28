@@ -1,8 +1,18 @@
 import * as path from "path";
 import fs from "fs/promises";
-import { CATEGORIES, findFile, formattedLog, getFilesFromDirectory, REPOSITORIES_PATH } from "../tools/helper";
+import {
+    CATEGORIES,
+    findPackageJSONPath,
+    formattedLog,
+    getFilesFromDirectory,
+    REPOSITORIES_PATH, reset
+} from "../tools/helper";
 import { PathLike } from "fs";
 import { Command, Option } from "commander";
+import {
+    db, getRepositoriesByStatus, getRepositoriesByStatusAndCategory,
+    Repository
+} from "../tools/database";
 
 interface Arguments {
     category: string;
@@ -19,52 +29,6 @@ function extractArguments(): Arguments {
     return {
         category: options.category,
     };
-}
-
-async function analyseRepository(projectName: string, repoPath: PathLike): Promise<void> {
-    formattedLog(projectName,`Analysing...`);
-    const packageJSONPath = await findPackageJSONPath(repoPath);
-    if (!packageJSONPath) {
-        formattedLog(projectName,`❌ No package.json found`);
-        return;
-    }
-    const packageJSONDependencies = await parsePackageJSON(packageJSONPath);
-    if (!isWebpackProject(packageJSONDependencies)){
-        formattedLog(projectName,`⚠️  Not a webpack project`);
-    }
-
-    if(!(await isESLintProject(repoPath))){
-        formattedLog(projectName,`⚠️  Not a ESLint project`);
-    }
-}
-
-async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike | null> {
-    return await findFile("package.json", repoPath);
-}
-
-async function parsePackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
-    const rowData = await fs.readFile(packagePath, "utf8");
-    let packageJSON: Record<string, any> = {};
-    try {
-        packageJSON = JSON.parse(rowData);
-    } catch (e) {
-        console.log(`❌ Error parsing package.json: ${e}`);
-    }
-    const dependencies = packageJSON.dependencies;
-    const devDependencies = packageJSON.devDependencies;
-    const peerDependencies = packageJSON.peerDependencies;
-    const optionalDependencies = packageJSON.optionalDependencies;
-    return {...dependencies, ...devDependencies, ...peerDependencies, ...optionalDependencies};
-}
-
-function isWebpackProject(packageJSONDependencies: Record<string,string>): boolean{
-    if (packageJSONDependencies.hasOwnProperty("webpack")) {
-        return true;
-    }
-    if (packageJSONDependencies.hasOwnProperty("angular")) {
-        return true;
-    }
-    return false;
 }
 
 async function countDependencies() {
@@ -121,16 +85,17 @@ async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
+    await db.sync();
     const args = extractArguments();
 
-    await countDependencies();
-
-    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
-        .filter((dirent) => dirent.isDirectory());
-    console.log(localRepositories.map((repo) => repo.name));
-    const tasks = new Array<Promise<any>>();
-    for (const localRepository of localRepositories) {
-        tasks.push(analyseRepository(localRepository.name, path.resolve(REPOSITORIES_PATH,localRepository.name,'source')));
+    let repositories: Repository[];
+    if (args.category == 'all') {
+        console.log('Fetching categorized repositories...');
+        repositories = await getRepositoriesByStatus('categorized');
+    } else {
+        console.log('Fetching ' + args.category + ' repositories...');
+        repositories = await getRepositoriesByStatusAndCategory('categorized', args.category);
     }
-    await Promise.all(tasks);
+
+    console.log(repositories.length + " project(s) found!");
 })();

@@ -1,4 +1,4 @@
-import { Sequelize, Model, DataTypes } from "sequelize";
+import { Sequelize, Model, DataTypes, Op } from "sequelize";
 import path from "path";
 
 export const db = new Sequelize({
@@ -11,11 +11,13 @@ interface RepositoryAttributes {
     id: number;
     name: string;
     category: string;
+    status: string;
 }
-class Repository extends Model<RepositoryAttributes> {
+export class Repository extends Model<RepositoryAttributes> {
     declare id: number;
     declare name: string;
     declare category: string;
+    declare status: string;
 }
 Repository.init({
     id: {
@@ -23,35 +25,37 @@ Repository.init({
         primaryKey: true,
     },
     name: DataTypes.STRING,
-    category: {
-        type: DataTypes.STRING,
-        defaultValue: 'undefined',
-    },
+    category: DataTypes.STRING,
+    status: DataTypes.STRING,
 }, { sequelize: db, modelName: 'repository' });
 
 /**
- * Save a repository in the database
+ * Insert a repository in the database
  * @param repository
  */
-export function saveRepository(repository: RepositoryAttributes): Promise<[Repository, (boolean | null)]> {
-    return Repository.upsert(repository);
+export function insertRepository(repository: RepositoryAttributes): Promise<Repository> {
+    return Repository.create(repository);
 }
 
 /**
- * Get uncategorized repositories
+ * Get categorized repositories
  */
-export function getUncategorizedRepositories(): Promise<Repository[]> {
-    return getRepositoryByCategory('unknown');
-}
-
-/**
- * Get repositories by category
- * @param category
- */
-export function getRepositoryByCategory(category: string): Promise<Repository[]> {
+export function getRepositoriesByStatus(status: string): Promise<Repository[]> {
     return Repository.findAll({
         where: {
+            status: status
+        }
+    });
+}
+
+/**
+ * Get categorized repositories by category
+ */
+export function getRepositoriesByStatusAndCategory(status: string, category: string): Promise<Repository[]> {
+    return Repository.findAll({
+        where: {
+            status: status,
             category: category,
-        },
+        }
     });
 }

@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { Command } from 'commander';
 import { REPOSITORIES_PATH, reset } from '../tools/helper';
-import { db, saveRepository } from "../tools/database";
+import { db, insertRepository } from "../tools/database";
 
 const octokit = new Octokit();
 const PER_PAGE_MAX = 100;
@@ -99,7 +99,7 @@ async function cloneRepository(repo: any): Promise<string> {
  * @param repo - Repository object return by Github's API
  */
 async function saveRawRepository(repo: any): Promise<void> {
-    await saveRepository({id: repo.id, name: repo.name, category: 'unknown'})
+    await insertRepository({id: repo.id, name: repo.name, status: 'uncategorized', category: ''})
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
