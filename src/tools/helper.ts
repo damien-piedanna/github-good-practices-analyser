@@ -1,7 +1,7 @@
 import * as path from "path";
-import { PathLike } from "fs";
+import { Dirent, PathLike } from "fs";
 import fs from "fs/promises";
-import { db } from "./database";
+import { db, getAllRepository, Repository } from "./database";
 
 export const ROOT_PATH = path.resolve(__dirname,'../..');
 console.log(ROOT_PATH);
@@ -88,4 +88,34 @@ export async function reset() {
         .map((item) => fs.rm( path.resolve(REPOSITORIES_PATH, item.name), {recursive: true}));
     //Delete from database
     await db.sync({force: true});
+}
+
+export async function getRepositoriesFromLocalFiles(): Promise<Dirent[]> {
+    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
+        .filter((dirent) => dirent.isDirectory());
+    return localRepositories;
+}
+
+export function resolveProjectDirectoryName(repo: Repository): string {
+    return `${repo.name}_${repo.id}`;
+}
+
+export async function clearAvortedClonningRepositories(){
+    const localRepositories = await getRepositoriesFromLocalFiles();
+    const repositoriesInDatabase = await getAllRepository();
+    const repositoriesToDeleteInLocal = localRepositories
+    .filter((localRepository) => !repositoriesInDatabase.find((repository) => localRepository.name === resolveProjectDirectoryName(repository)));
+    
+    await Promise.all(repositoriesToDeleteInLocal.map(async (repository) => {
+        console.log(`Deleting ${repository.name} in local`);
+        // await repository.destroy();
+        await fs.rm( path.resolve(REPOSITORIES_PATH, repository.name), {recursive: true});
+    }));
+    
+    const repositoriesToDeleteInDB = repositoriesInDatabase
+    .filter((repository) => !localRepositories.find((localRepository) => localRepository.name === resolveProjectDirectoryName(repository)));
+    await Promise.all(repositoriesToDeleteInDB.map(async (repository) => {
+        console.log(`Deleting ${repository.name} in DB`);
+        await repository.destroy();
+    }));
 }

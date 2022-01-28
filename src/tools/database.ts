@@ -48,6 +48,10 @@ export function getRepositoriesByStatus(status: string): Promise<Repository[]> {
     });
 }
 
+export function getAllRepository(): Promise<Repository[]> {
+    return Repository.findAll({});
+}
+
 /**
  * Get categorized repositories by category
  */

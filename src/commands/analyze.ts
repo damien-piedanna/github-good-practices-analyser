@@ -5,7 +5,7 @@ import {
     findPackageJSONPath,
     formattedLog,
     getFilesFromDirectory,
-    REPOSITORIES_PATH, reset
+    REPOSITORIES_PATH,
 } from "../tools/helper";
 import { PathLike } from "fs";
 import { Command, Option } from "commander";
