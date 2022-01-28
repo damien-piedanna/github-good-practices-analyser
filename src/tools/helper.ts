@@ -100,6 +100,10 @@ export function resolveProjectDirectoryName(repo: Repository): string {
     return `${repo.name}_${repo.id}`;
 }
 
+export function resolveProjectDirectoryPath(repo: Repository): string {
+    return path.resolve(REPOSITORIES_PATH, resolveProjectDirectoryName(repo));
+}
+
 export async function clearAvortedClonningRepositories(){
     const localRepositories = await getRepositoriesFromLocalFiles();
     const repositoriesInDatabase = await getAllRepository();
@@ -118,4 +122,16 @@ export async function clearAvortedClonningRepositories(){
         console.log(`Deleting ${repository.name} in DB`);
         await repository.destroy();
     }));
+}
+
+export async function extractDependenciesFromPackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
+    const rowData = await fs.readFile(packagePath, "utf8");
+    let packageJSON: Record<string, any> = {};
+    try {
+        packageJSON = JSON.parse(rowData);
+    } catch (e) {
+        console.log(`❌ Error parsing package.json: ${e}`);
+    }
+    const dependencies = packageJSON.dependencies;
+    return dependencies;
 }

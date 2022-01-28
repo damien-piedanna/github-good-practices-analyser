@@ -34,14 +34,16 @@ async function getDependencies(projectName: string, repoPath: PathLike): Promise
     const repositories = await getRepositoriesByStatus('uncategorized');
     console.log(repositories.length + " project(s) found!");
 
-    for (let repo of repositories) {
+    for (const repo of repositories) {
         const repoPath = path.resolve(REPOSITORIES_PATH, `${repo.name}_${repo.id}`);
+        // eslint-disable-next-line no-await-in-loop
         const packageJSONDependencies = await getDependencies(repo.name, repoPath);
 
         if (!hasDependency(packageJSONDependencies, 'webpack')){
             formattedLog(repo.name,`⚠️  Not a webpack project`);
             repo.category = "not_webpack";
             repo.status = 'blacklisted';
+            // eslint-disable-next-line no-await-in-loop
             await repo.save();
             continue;
         }
@@ -84,6 +86,7 @@ async function getDependencies(projectName: string, repoPath: PathLike): Promise
         }
 
         repo.status = 'categorized';
+        // eslint-disable-next-line no-await-in-loop
         await repo.save();
     }
 })();

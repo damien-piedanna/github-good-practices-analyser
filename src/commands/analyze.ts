@@ -2,17 +2,19 @@ import * as path from "path";
 import fs from "fs/promises";
 import {
     CATEGORIES,
+    extractDependenciesFromPackageJSON,
     findPackageJSONPath,
     formattedLog,
     getFilesFromDirectory,
     REPOSITORIES_PATH,
     resolveProjectDirectoryName,
+    resolveProjectDirectoryPath,
 } from "../tools/helper";
 import { PathLike } from "fs";
 import { Command, Option } from "commander";
 import {
     db, getAllRepository, getRepositoriesByStatus, getRepositoriesByStatusAndCategory,
-    Repository
+    Repository,
 } from "../tools/database";
 
 interface Arguments {
@@ -77,6 +79,22 @@ async function countDependencies() {
     console.log(Array.from(devDependenciesCounter).sort((a, b) => b[1] - a[1]));
 }
 
+async function checkWrongPlaceForDependencies(localRepositoryPath: PathLike) {
+    const devDependenciesFile = JSON.parse((await fs.readFile(path.resolve(__dirname,'../../src','devDependencies.info.json'))).toString());
+    const mostCommonDevDependencies: string[] = devDependenciesFile.mostCommon;
+    const packageJSONPath = await findPackageJSONPath(localRepositoryPath);
+    if (!packageJSONPath) {
+        throw new Error('package.json not found')
+    }
+   const dependencies = await extractDependenciesFromPackageJSON(packageJSONPath);
+   const wrongDependencies = Object.keys(dependencies ?? {}).filter((dependency) => {
+         return mostCommonDevDependencies.includes(dependency);
+    });
+    if (wrongDependencies.length > 0) {
+        console.log(`${wrongDependencies.join(', ')} should be in devDependencies`);
+    }
+}
+
 async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
     const files = await getFilesFromDirectory(localRepositoryPath);
     const isContainESLintFile = files.find((file) => path.basename(file).match("eslintrc"));
@@ -96,6 +114,10 @@ async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
         console.log('Fetching ' + args.category + ' repositories...');
         repositories = await getRepositoriesByStatusAndCategory('categorized', args.category);
     }
-
     console.log(repositories.length + " project(s) found!");
+
+    for (const repository of repositories) {
+        // eslint-disable-next-line no-await-in-loop
+        await checkWrongPlaceForDependencies(resolveProjectDirectoryPath(repository));
+    }
 })();

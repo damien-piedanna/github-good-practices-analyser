@@ -46,6 +46,11 @@ function extractArguments(): Arguments {
         order: 'desc',
         per_page: params.per_page,
         page: params.page,
+    }).catch(async (error: any) => {
+        const delay = 60;
+        console.error(`\nAPI rate limit exceeded waiting ${delay} seconds`);
+        await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
+        return githubCall(params);
     });
 }
 

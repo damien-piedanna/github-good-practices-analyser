@@ -10,6 +10,11 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
     project: './tsconfig.json',
+    exclude: [
+      'node_modules',
+      'repositories',
+      '.eslintrc.js',
+    ],
   },
   plugins: [
     '@typescript-eslint',
