@@ -32,10 +32,9 @@ function extractArguments(): Arguments {
 }
 
 async function countDependencies() {
-    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
-    .filter((dirent) => dirent.isDirectory());
+    const localRepositories = await getAllRepository();
     const packageJSONPromises = localRepositories.map(async (repository) => {
-        const packageJSONPath = await findPackageJSONPath(path.resolve(REPOSITORIES_PATH, repository.name));
+        const packageJSONPath = await findPackageJSONPath(path.resolve(REPOSITORIES_PATH, resolveProjectDirectoryName(repository)));
         if (!packageJSONPath) {
             formattedLog(repository.name,`❌ No package.json found`);
             return;
