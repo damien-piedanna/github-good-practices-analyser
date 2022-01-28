@@ -1,7 +1,7 @@
 import * as path from "path";
-import { PathLike } from "fs";
+import { Dirent, PathLike } from "fs";
 import fs from "fs/promises";
-import { db } from "./database";
+import { db, getAllRepository, Repository } from "./database";
 
 export const ROOT_PATH = path.resolve(__dirname,'../..');
 console.log(ROOT_PATH);
@@ -61,4 +61,25 @@ export async function reset() {
         .map((item) => fs.rm( path.resolve(REPOSITORIES_PATH, item.name), {recursive: true}));
     //Delete from database
     await db.sync({force: true});
+}
+
+export async function getRepositoriesFromLocalFiles(): Promise<Dirent[]> {
+    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
+        .filter((dirent) => dirent.isDirectory());
+    return localRepositories;
+}
+
+export function resolveProjectDirectoryName(repo: Repository): string {
+    return `${repo.name}_${repo.id}`;
+}
+
+export async function clearAvortClonningRepositories(){
+    const localRepositories = await getRepositoriesFromLocalFiles();
+    const repositoriesInDatabase = await getAllRepository();
+    const repositoriesToDelete = repositoriesInDatabase
+    .filter((repository) => !localRepositories.find((localRepository) => localRepository.name === resolveProjectDirectoryName(repository)));
+    await Promise.all(repositoriesToDelete.map(async (repository) => {
+        await repository.destroy();
+        await fs.rm( path.resolve(REPOSITORIES_PATH, resolveProjectDirectoryName(repository)), {recursive: true});
+    }));
 }

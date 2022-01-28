@@ -44,6 +44,10 @@ export function getUncategorizedRepositories(): Promise<Repository[]> {
     return getRepositoryByCategory('unknown');
 }
 
+export function getAllRepository(): Promise<Repository[]> {
+    return Repository.findAll({});
+}
+
 /**
  * Get repositories by category
  * @param category

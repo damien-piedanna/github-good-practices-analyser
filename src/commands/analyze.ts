@@ -1,6 +1,6 @@
 import * as path from "path";
 import fs from "fs/promises";
-import { CATEGORIES, findFile, formattedLog, getFilesFromDirectory, REPOSITORIES_PATH } from "../tools/helper";
+import { CATEGORIES, findFile, formattedLog, getFilesFromDirectory, getRepositoriesFromLocalFiles, REPOSITORIES_PATH } from "../tools/helper";
 import { PathLike } from "fs";
 import { Command, Option } from "commander";
 
@@ -125,9 +125,7 @@ async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
 
     await countDependencies();
 
-    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
-        .filter((dirent) => dirent.isDirectory());
-    console.log(localRepositories.map((repo) => repo.name));
+    const localRepositories = await getRepositoriesFromLocalFiles();
     const tasks = new Array<Promise<any>>();
     for (const localRepository of localRepositories) {
         tasks.push(analyseRepository(localRepository.name, path.resolve(REPOSITORIES_PATH,localRepository.name,'source')));

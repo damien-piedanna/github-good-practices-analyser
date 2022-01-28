@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { Command } from 'commander';
 import { REPOSITORIES_PATH, reset } from '../tools/helper';
-import { db, saveRepository } from "../tools/database";
+import { db, getAllRepository, saveRepository } from "../tools/database";
 
 const octokit = new Octokit();
 const PER_PAGE_MAX = 100;
@@ -34,40 +34,10 @@ function extractArguments(): Arguments {
 }
 
 /**
- * Retrieve repositories from GitHub
- * @link Example: https://github.com/search?q=webpack+in%3Apackage.json+language%3Ajavascript+archived%3Afalse+is%3Apublic&type=Repositories
- * @param termInPackageJson - Search for projects containing this term in package.json
- * @param limit - Limit of projects wanted
- */
-async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number): Promise<any> {
-    //Building query pool
-    const queryParams: any[] = [];
-    //Optimization if limit > PER_PAGE_MAX
-    const perPage = limit > PER_PAGE_MAX ? PER_PAGE_MAX : limit;
-    const nbPageNeeded = Math.ceil(limit / perPage);
-    for(let page = 1; page <= nbPageNeeded; page++){
-        queryParams.push({
-            'termInPackageJson': termInPackageJson,
-            'per_page': perPage,
-            'page': page,
-        });
-    }
-
-    //Execute Queries
-    const queryActions = queryParams.map(githubCall);
-    let results = await Promise.all(queryActions);
-
-    //Cleaning data
-    results = results.map(a => a.data.items).flat().slice(0, limit);
-
-    return results;
-}
-
-/**
  * Execute github HTTP GET request
  * @param params
  */
-function githubCall(params: any): Promise<any> {
+ function githubCall(params: any): Promise<any> {
     return octokit.rest.search.repos({
         q: params.termInPackageJson + '+in:package.json+language:javascript+archived:false+is:public',
         sort: 'updated',
@@ -76,6 +46,44 @@ function githubCall(params: any): Promise<any> {
         page: params.page,
     });
 }
+
+/**
+ * Retrieve repositories from GitHub
+ * @link Example: https://github.com/search?q=webpack+in%3Apackage.json+language%3Ajavascript+archived%3Afalse+is%3Apublic&type=Repositories
+ * @param termInPackageJson - Search for projects containing this term in package.json
+ * @param limit - Limit of projects wanted
+ */
+async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number): Promise<any> {
+    //Optimization if limit > PER_PAGE_MAX
+    const perPage = limit > PER_PAGE_MAX ? PER_PAGE_MAX : limit;
+    
+    const alreadyLoadedRepositories = await getAllRepository();
+
+    const repositories: any[] = [];
+    process.stdout.write(`\rRetrieve from Github... ${repositories.length}/${limit}`);
+    let page = 1;
+    while (repositories.length < limit && page <= 2) {
+        // eslint-disable-next-line no-await-in-loop
+        const githubResponse = await githubCall({
+            termInPackageJson: termInPackageJson,
+            per_page: perPage,
+            page: page,
+        });
+        //Cleaning data
+        const queryRepositories = githubResponse.data.items
+            .flat()
+            .filter((repo: any) => !(alreadyLoadedRepositories.find((r: any) => r.id === repo.id)))
+            .slice(0, limit - repositories.length);
+        
+        repositories.push(...queryRepositories);
+        process.stdout.write(`\rRetrieve from Github... ${repositories.length}/${limit}`);
+        page++;
+    }
+    console.log('');
+    return repositories;
+}
+
+
 
 /**
  * Clone a repository in the right path
@@ -105,23 +113,27 @@ async function saveRawRepository(repo: any): Promise<void> {
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     const args = extractArguments();
+    await db.sync();
 
     if (args.reset) {
         console.log('Reset...');
         await reset();
     }
 
-    console.log('Retrieve from github...');
     const repositories = await retrieveRepositoriesFromGithub(args.query, args.limit);
 
-    console.log('Cloning...');
-    const cloneActions: Promise<string>[] = repositories.map(cloneRepository);
-    await Promise.all(cloneActions);
 
-    console.log('Saving...');
-    await db.sync();
-    const saveActions: Promise<string>[] = repositories.map(saveRawRepository);
-    await Promise.all(saveActions);
+    let endedClonning: number = 0;
+    process.stdout.write(`Cloning...`);
+    
+    const cloneActions: Promise<string>[] = repositories.map((repo: any) => cloneRepository(repo)
+    .then(async () => {   
+        endedClonning++;
+        process.stdout.write(`\rCloning... ${endedClonning}/${repositories.length}`);
+        await saveRawRepository(repo);
+    }));
+
+    await Promise.all(cloneActions);
 
     console.log('Done!');
 })();
