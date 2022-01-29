@@ -37,7 +37,7 @@ async function getDependencies(projectName: string, repoPath: PathLike): Promise
     for (const repo of repositories) {
         const repoPath = path.resolve(REPOSITORIES_PATH, `${repo.name}_${repo.id}`);
         // eslint-disable-next-line no-await-in-loop
-        const packageJSONDependencies = await getDependencies(repo.name, repoPath);
+        const packageJSONDependencies = await getDependencies(repo.name, repoPath).catch(() => { return {} });
 
         if (!hasDependency(packageJSONDependencies, 'webpack')){
             formattedLog(repo.name,`⚠️  Not a webpack project`);

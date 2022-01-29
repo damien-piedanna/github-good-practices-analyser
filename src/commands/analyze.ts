@@ -106,6 +106,8 @@ async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
     await db.sync();
     const args = extractArguments();
 
+    // await countDependencies();
+
     let repositories: Repository[];
     if (args.category == 'all') {
         console.log('Fetching categorized repositories...');
