@@ -95,10 +95,11 @@ async function checkWrongPlaceForDependencies(localRepositoryPath: PathLike) {
     }
 }
 
-async function isESLintProject(localRepositoryPath: PathLike): Promise<boolean>{
+async function isESLintProject(localRepositoryPath: PathLike, packageJSONDependencies: Record<string,string>): Promise<boolean>{
     const files = await getFilesFromDirectory(localRepositoryPath);
     const isContainESLintFile = files.find((file) => path.basename(file).match("eslintrc"));
-    return !!isContainESLintFile;
+    const packageJsonAsEslint = packageJSONDependencies.hasOwnProperty("eslint")
+    return !!isContainESLintFile || packageJsonAsEslint;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
