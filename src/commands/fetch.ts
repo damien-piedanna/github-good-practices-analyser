@@ -47,9 +47,15 @@ function extractArguments(): Arguments {
         per_page: params.per_page,
         page: params.page,
     }).catch(async (error: any) => {
-        const delay = 60;
-        console.error(`\nAPI rate limit exceeded waiting ${delay} seconds`);
-        await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
+        console.log(error);
+        process.stdout.write('\n');
+        let delay = 70;
+        while(delay > 0) {
+            process.stdout.write(`\rAPI rate limit exceeded waiting ${delay} seconds`);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            delay --;
+        }
         return githubCall(params);
     });
 }
@@ -67,7 +73,8 @@ async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: 
     const repositories: any[] = [];
     process.stdout.write(`\rRetrieve from Github... ${repositories.length}/${limit}`);
     let page = 1;
-    while (repositories.length < limit) {
+    // Max result is 1000
+    while (repositories.length < limit && page <= 10) {
         // eslint-disable-next-line no-await-in-loop
         const githubResponse = await githubCall({
             termInPackageJson: termInPackageJson,
