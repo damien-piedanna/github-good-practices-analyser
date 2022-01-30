@@ -79,27 +79,55 @@ async function countDependencies() {
     console.log(Array.from(devDependenciesCounter).sort((a, b) => b[1] - a[1]));
 }
 
-async function checkWrongPlaceForDependencies(localRepositoryPath: PathLike) {
+/**
+ * Checks the number of misplaced dev dependencies
+ * @param localRepositoryPath
+ * @param dependencies
+ */
+async function checkWrongPlaceForDependencies(localRepositoryPath: PathLike, dependencies: Record<string,string>) {
     const devDependenciesFile = JSON.parse((await fs.readFile(path.resolve(__dirname,'../../src','devDependencies.info.json'))).toString());
     const mostCommonDevDependencies: string[] = devDependenciesFile.mostCommon;
-    const packageJSONPath = await findPackageJSONPath(localRepositoryPath);
+    const wrongDependencies = Object.keys(dependencies ?? {}).filter((dependency) => {
+        return mostCommonDevDependencies.includes(dependency);
+    });
+    /*
+    if (wrongDependencies.length) {
+        console.log(`${wrongDependencies.join(', ')} should be in devDependencies`);
+    }
+    */
+    return wrongDependencies.length;
+}
+
+/**
+ * Check if a repository use eslint
+ * @param localRepositoryPath
+ * @param dependencies
+ */
+async function isESLintProject(localRepositoryPath: PathLike, dependencies: Record<string,string>): Promise<boolean>{
+    const files = await getFilesFromDirectory(localRepositoryPath);
+    const isContainESLintFile = files.find((file) => path.basename(file).match("eslintrc"));
+    const packageJsonAsEslint = dependencies.hasOwnProperty("eslint")
+    return !!isContainESLintFile || packageJsonAsEslint;
+}
+
+/**
+ * Check rules for a repository
+ * @param repo
+ */
+async function checkRules(repo: Repository): Promise<void> {
+    const path = resolveProjectDirectoryPath(repo);
+    const packageJSONPath = await findPackageJSONPath(path);
     if (!packageJSONPath) {
         throw new Error('package.json not found')
     }
-   const dependencies = await extractDependenciesFromPackageJSON(packageJSONPath);
-   const wrongDependencies = Object.keys(dependencies ?? {}).filter((dependency) => {
-         return mostCommonDevDependencies.includes(dependency);
-    });
-    if (wrongDependencies.length > 0) {
-        console.log(`${wrongDependencies.join(', ')} should be in devDependencies`);
-    }
-}
+    const dependencies = await extractDependenciesFromPackageJSON(packageJSONPath);
+    const hasDependencies = Object.keys(dependencies).length;
 
-async function isESLintProject(localRepositoryPath: PathLike, packageJSONDependencies: Record<string,string>): Promise<boolean>{
-    const files = await getFilesFromDirectory(localRepositoryPath);
-    const isContainESLintFile = files.find((file) => path.basename(file).match("eslintrc"));
-    const packageJsonAsEslint = packageJSONDependencies.hasOwnProperty("eslint")
-    return !!isContainESLintFile || packageJsonAsEslint;
+    repo.ruleLinter = hasDependencies ? await isESLintProject(path, dependencies) : false;
+    repo.ruleDevDependencies = hasDependencies ? await checkWrongPlaceForDependencies(path, dependencies) : 0;
+
+    repo.status = 'analyzed';
+    await repo.save();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -107,7 +135,7 @@ async function isESLintProject(localRepositoryPath: PathLike, packageJSONDepende
     await db.sync();
     const args = extractArguments();
 
-    // await countDependencies();
+    //await countDependencies();
 
     let repositories: Repository[];
     if (args.category == 'all') {
@@ -119,8 +147,15 @@ async function isESLintProject(localRepositoryPath: PathLike, packageJSONDepende
     }
     console.log(repositories.length + " project(s) found!");
 
-    for (const repository of repositories) {
-        // eslint-disable-next-line no-await-in-loop
-        await checkWrongPlaceForDependencies(resolveProjectDirectoryPath(repository));
-    }
+    let endedAnalyzed: number = 0;
+    process.stdout.write(`Analyzed...`);
+    const categorizeActions: Promise<void>[] = repositories.map((repo: any) => checkRules(repo)
+        .then(async () => {
+            endedAnalyzed++;
+            process.stdout.write(`\rAnalyzed... ${endedAnalyzed}/${repositories.length}`);
+            await checkRules(repo);
+        }));
+    await Promise.all(categorizeActions);
+
+    console.log('\nDone!');
 })();

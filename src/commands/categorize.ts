@@ -1,8 +1,7 @@
-
-import {db, getRepositoriesByStatus} from "../tools/database";
+import { db, getRepositoriesByStatus, Repository } from "../tools/database";
 import path from "path";
-import {findPackageJSONPath, formattedLog, parsePackageJSON, REPOSITORIES_PATH} from "../tools/helper";
-import {PathLike} from "fs";
+import { findPackageJSONPath, parsePackageJSON, REPOSITORIES_PATH } from "../tools/helper";
+import { PathLike } from "fs";
 
 /**
  * Return if a repository as a dependency
@@ -26,6 +25,56 @@ async function getDependencies(projectName: string, repoPath: PathLike): Promise
     return await parsePackageJSON(packageJSONPath);
 }
 
+/**
+ * Categorized a repository
+ * @param repo
+ */
+async function categorizedRepository(repo: Repository): Promise<void> {
+    const repoPath = path.resolve(REPOSITORIES_PATH, `${repo.name}_${repo.id}`);
+    const packageJSONDependencies = await getDependencies(repo.name, repoPath).catch(() => { return {} });
+
+    if (!hasDependency(packageJSONDependencies, 'webpack')){
+        repo.category = "not_webpack";
+        repo.status = 'blacklisted';
+        await repo.save();
+        return;
+    }
+
+    repo.status = 'categorized';
+
+    switch (true) {
+        case hasDependency(packageJSONDependencies, '@angular'): {
+            repo.category = "angular";
+            break;
+        }
+        case hasDependency(packageJSONDependencies, 'react'): {
+            repo.category = "react";
+            break;
+        }
+        case hasDependency(packageJSONDependencies, '@vue'): {
+            repo.category = "vue";
+            break;
+        }
+        case hasDependency(packageJSONDependencies, 'express'): {
+            repo.category = "express";
+            break;
+        }
+        case hasDependency(packageJSONDependencies, '@nestjs'): {
+            repo.category = "nestjs";
+            break;
+        }
+        case hasDependency(packageJSONDependencies, 'next'): {
+            repo.category = "next";
+            break;
+        }
+        default: {
+            repo.category = "native";
+        }
+    }
+    await repo.save();
+}
+
+
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     await db.sync();
@@ -34,59 +83,15 @@ async function getDependencies(projectName: string, repoPath: PathLike): Promise
     const repositories = await getRepositoriesByStatus('uncategorized');
     console.log(repositories.length + " project(s) found!");
 
-    for (const repo of repositories) {
-        const repoPath = path.resolve(REPOSITORIES_PATH, `${repo.name}_${repo.id}`);
-        // eslint-disable-next-line no-await-in-loop
-        const packageJSONDependencies = await getDependencies(repo.name, repoPath).catch(() => { return {} });
+    let endedCategorized: number = 0;
+    process.stdout.write(`Categorized...`);
+    const categorizeActions: Promise<void>[] = repositories.map((repo: any) => categorizedRepository(repo)
+    .then(async () => {
+        endedCategorized++;
+        process.stdout.write(`\rCategorized... ${endedCategorized}/${repositories.length}`);
+        await categorizedRepository(repo);
+    }));
+    await Promise.all(categorizeActions);
 
-        if (!hasDependency(packageJSONDependencies, 'webpack')){
-            formattedLog(repo.name,`⚠️  Not a webpack project`);
-            repo.category = "not_webpack";
-            repo.status = 'blacklisted';
-            // eslint-disable-next-line no-await-in-loop
-            await repo.save();
-            continue;
-        }
-
-        switch (true) {
-            case hasDependency(packageJSONDependencies, '@angular'): {
-                formattedLog(repo.name,` =>  angular project`);
-                repo.category = "angular";
-                break;
-            }
-            case hasDependency(packageJSONDependencies, 'react'): {
-                formattedLog(repo.name,` => react project`);
-                repo.category = "react";
-                break;
-            }
-            case hasDependency(packageJSONDependencies, '@vue'): {
-                formattedLog(repo.name,` => vue project`);
-                repo.category = "vue";
-                break;
-            }
-            case hasDependency(packageJSONDependencies, 'express'): {
-                formattedLog(repo.name,` => express project`);
-                repo.category = "express";
-                break;
-            }
-            case hasDependency(packageJSONDependencies, '@nestjs'): {
-                formattedLog(repo.name,` => nestjs project`);
-                repo.category = "nestjs";
-                break;
-            }
-            case hasDependency(packageJSONDependencies, 'next'): {
-                formattedLog(repo.name,` => next project`);
-                repo.category = "next";
-                break;
-            }
-            default: {
-                formattedLog(repo.name,` => native project`);
-                repo.category = "native";
-            }
-        }
-
-        repo.status = 'categorized';
-        // eslint-disable-next-line no-await-in-loop
-        await repo.save();
-    }
+    console.log('\nDone!');
 })();

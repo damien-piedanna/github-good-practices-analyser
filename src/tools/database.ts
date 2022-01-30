@@ -1,4 +1,4 @@
-import { Sequelize, Model, DataTypes, Op } from "sequelize";
+import { Sequelize, Model, DataTypes } from "sequelize";
 import path from "path";
 
 export const db = new Sequelize({
@@ -8,16 +8,34 @@ export const db = new Sequelize({
 });
 
 interface RepositoryAttributes {
+    //common
     id: number;
     name: string;
-    category: string;
-    status: string;
+    language: string;
+    //state
+    status?: string;
+    category?: string;
+    //stats
+    forks: number;
+    stars: number;
+    createdAt: Date;
+    updatedAt: Date;
+    //rules
+    ruleLinter?: boolean;
+    ruleDevDependencies?: number;
 }
 export class Repository extends Model<RepositoryAttributes> {
     declare id: number;
     declare name: string;
-    declare category: string;
+    declare language: string;
     declare status: string;
+    declare category: string;
+    declare forks: number;
+    declare stars: number;
+    declare createdAt: Date;
+    declare updatedAt: Date;
+    declare ruleLinter: boolean;
+    declare ruleDevDependencies: number;
 }
 Repository.init({
     id: {
@@ -25,8 +43,21 @@ Repository.init({
         primaryKey: true,
     },
     name: DataTypes.STRING,
-    category: DataTypes.STRING,
-    status: DataTypes.STRING,
+    language: DataTypes.STRING,
+    status: {
+        type: DataTypes.STRING,
+        defaultValue: 'uncategorized',
+    },
+    category: {
+        type: DataTypes.STRING,
+        defaultValue: '',
+    },
+    forks: DataTypes.INTEGER,
+    stars: DataTypes.INTEGER,
+    createdAt: DataTypes.DATE,
+    updatedAt: DataTypes.DATE,
+    ruleLinter: DataTypes.BOOLEAN,
+    ruleDevDependencies: DataTypes.INTEGER,
 }, { sequelize: db, modelName: 'repository' });
 
 /**
@@ -43,8 +74,8 @@ export function insertRepository(repository: RepositoryAttributes): Promise<Repo
 export function getRepositoriesByStatus(status: string): Promise<Repository[]> {
     return Repository.findAll({
         where: {
-            status: status
-        }
+            status: status,
+        },
     });
 }
 
@@ -60,6 +91,6 @@ export function getRepositoriesByStatusAndCategory(status: string, category: str
         where: {
             status: status,
             category: category,
-        }
+        },
     });
 }

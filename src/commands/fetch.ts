@@ -4,8 +4,8 @@ import gitClone from 'git-clone/promise';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { Command } from 'commander';
-import {clearAvortedClonningRepositories, REPOSITORIES_PATH, reset} from '../tools/helper';
-import {db, getAllRepository, insertRepository} from "../tools/database";
+import { clearAbortedCloningRepositories, REPOSITORIES_PATH, reset } from '../tools/helper';
+import { db, getAllRepository, insertRepository } from "../tools/database";
 
 const octokit = new Octokit();
 
@@ -41,7 +41,7 @@ function extractArguments(): Arguments {
  */
  function githubCall(params: any): Promise<any> {
     return octokit.rest.search.repos({
-        q: params.termInPackageJson + '+in:package.json+language:javascript+archived:false+is:public',
+        q: params.termInPackageJson + '+in:package.json+language:javascript+language:typescript+archived:false+is:public',
         sort: 'updated',
         order: 'desc',
         per_page: params.per_page,
@@ -95,8 +95,6 @@ async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: 
     return repositories;
 }
 
-
-
 /**
  * Clone a repository in the right path
  * @param repo - Repository object return by Github's API
@@ -108,7 +106,12 @@ async function cloneRepository(repo: any): Promise<string> {
     if (!isAlreadyClone) {
         await fs.mkdir(repoPath, { recursive: true });
         await fs.writeFile(path.resolve(repoPath, 'details.json'), JSON.stringify(repo, null, 2));
-        await gitClone(repo.clone_url, path.resolve(repoPath, 'source'));
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        await gitClone(repo.clone_url, path.resolve(repoPath, 'source'), {
+            'shallow': true,
+            //'args': ['--single-branch'],
+        });
     }
 
     return repoPath;
@@ -119,7 +122,15 @@ async function cloneRepository(repo: any): Promise<string> {
  * @param repo - Repository object return by Github's API
  */
 async function saveRawRepository(repo: any): Promise<void> {
-    await insertRepository({id: repo.id, name: repo.name, status: 'uncategorized', category: ''})
+    await insertRepository({
+        id: repo.id,
+        name: repo.name,
+        language: repo.language,
+        forks: repo.forks_count,
+        stars: repo.stargazers_count,
+        createdAt: repo.created_at,
+        updatedAt: repo.updated_at,
+    })
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -128,8 +139,8 @@ async function saveRawRepository(repo: any): Promise<void> {
     await db.sync();
 
     if(args.clean){
-        console.log('Clean avorted clonning repositories');
-        await clearAvortedClonningRepositories();
+        console.log('Clean aborted cloning repositories');
+        await clearAbortedCloningRepositories();
     }
 
     if (args.reset) {
@@ -139,19 +150,16 @@ async function saveRawRepository(repo: any): Promise<void> {
 
     const repositories = await retrieveRepositoriesFromGithub(args.query, args.limit);
 
-
-    let endedClonning: number = 0;
-    process.stdout.write(`Cloning...`);
-    
+    let endedFetching: number = 0;
+    process.stdout.write(`Fetching...`);
     const cloneActions: Promise<string>[] = repositories.map((repo: any) => cloneRepository(repo)
     .then(async () => {   
-        endedClonning++;
-        process.stdout.write(`\rCloning... ${endedClonning}/${repositories.length}`);
+        endedFetching++;
+        process.stdout.write(`\rFetching... ${endedFetching}/${repositories.length}`);
         await saveRawRepository(repo);
     }));
-
     await Promise.all(cloneActions);
 
-    console.log('Done!');
+    console.log('\nDone!');
 })();
 

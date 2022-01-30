@@ -91,9 +91,8 @@ export async function reset() {
 }
 
 export async function getRepositoriesFromLocalFiles(): Promise<Dirent[]> {
-    const localRepositories = (await fs.readdir(path.resolve(REPOSITORIES_PATH), { withFileTypes: true }))
+    return (await fs.readdir(path.resolve(REPOSITORIES_PATH), {withFileTypes: true}))
         .filter((dirent) => dirent.isDirectory());
-    return localRepositories;
 }
 
 export function resolveProjectDirectoryName(repo: Repository): string {
@@ -104,7 +103,7 @@ export function resolveProjectDirectoryPath(repo: Repository): string {
     return path.resolve(REPOSITORIES_PATH, resolveProjectDirectoryName(repo));
 }
 
-export async function clearAvortedClonningRepositories(){
+export async function clearAbortedCloningRepositories(){
     const localRepositories = await getRepositoriesFromLocalFiles();
     const repositoriesInDatabase = await getAllRepository();
     const repositoriesToDeleteInLocal = localRepositories
@@ -124,6 +123,10 @@ export async function clearAvortedClonningRepositories(){
     }));
 }
 
+/**
+ * Extract dependencies from packageJSON
+ * @param packagePath
+ */
 export async function extractDependenciesFromPackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
     const rowData = await fs.readFile(packagePath, "utf8");
     let packageJSON: Record<string, any> = {};
@@ -132,6 +135,5 @@ export async function extractDependenciesFromPackageJSON(packagePath: PathLike):
     } catch (e) {
         console.log(`❌ Error parsing package.json: ${e}`);
     }
-    const dependencies = packageJSON.dependencies;
-    return dependencies;
+    return packageJSON.dependencies ?? {};
 }
