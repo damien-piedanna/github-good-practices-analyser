@@ -10,14 +10,15 @@ export const db = new Sequelize({
 interface RepositoryAttributes {
     //common
     id: number;
+    owner: string;
     name: string;
     language: string;
     //state
-    status?: string;
     category?: string;
     //stats
     forks: number;
     stars: number;
+    contributors: number;
     createdAt: Date;
     updatedAt: Date;
     //rules
@@ -26,12 +27,13 @@ interface RepositoryAttributes {
 }
 export class Repository extends Model<RepositoryAttributes> {
     declare id: number;
+    declare owner: string;
     declare name: string;
     declare language: string;
-    declare status: string;
     declare category: string;
     declare forks: number;
     declare stars: number;
+    declare contributors: number;
     declare createdAt: Date;
     declare updatedAt: Date;
     declare ruleLinter: boolean;
@@ -42,18 +44,16 @@ Repository.init({
         type: DataTypes.INTEGER,
         primaryKey: true,
     },
+    owner: DataTypes.STRING,
     name: DataTypes.STRING,
     language: DataTypes.STRING,
-    status: {
-        type: DataTypes.STRING,
-        defaultValue: 'uncategorized',
-    },
     category: {
         type: DataTypes.STRING,
         defaultValue: '',
     },
     forks: DataTypes.INTEGER,
     stars: DataTypes.INTEGER,
+    contributors: DataTypes.INTEGER,
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
     ruleLinter: DataTypes.BOOLEAN,
@@ -69,28 +69,8 @@ export function insertRepository(repository: RepositoryAttributes): Promise<Repo
 }
 
 /**
- * Get categorized repositories
+ * Get all repository from database
  */
-export function getRepositoriesByStatus(status: string): Promise<Repository[]> {
-    return Repository.findAll({
-        where: {
-            status: status,
-        },
-    });
-}
-
 export function getAllRepository(): Promise<Repository[]> {
     return Repository.findAll({});
-}
-
-/**
- * Get categorized repositories by category
- */
-export function getRepositoriesByStatusAndCategory(status: string, category: string): Promise<Repository[]> {
-    return Repository.findAll({
-        where: {
-            status: status,
-            category: category,
-        },
-    });
 }

@@ -1,26 +1,9 @@
 import * as path from "path";
-import { Dirent, PathLike } from "fs";
+import { PathLike } from "fs";
 import fs from "fs/promises";
-import { db, getAllRepository, Repository } from "./database";
 
 export const ROOT_PATH = path.resolve(__dirname,'../..');
-console.log(ROOT_PATH);
 export const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
-export const CATEGORIES = ['native', 'react', 'vue'];
-
-/**
- * Formats log messages to handle GitHub's repository names
- * Example : 101085586-limit_login_to_ip| ❌ No package.json found
- * @param repositoryGithub
- * @param message
- * @param optionalParams
- */
-export function formattedLog(repositoryGithub: string,message?: any, ...optionalParams: any[]) {
-    const formattedRepositoryName = repositoryGithub
-        .slice(0,repositoryGithub.lastIndexOf("-"))
-        .slice(0,15);
-    console.log(`${formattedRepositoryName.padEnd(15)}| ${message}`, ...optionalParams);
-}
 
 /**
  * Get all files from directory
@@ -77,63 +60,42 @@ export async function parsePackageJSON(packagePath: PathLike): Promise<Record<st
     return {...dependencies, ...devDependencies, ...peerDependencies, ...optionalDependencies};
 }
 
-/**
- * Clean the database and downloaded repositories
- */
-export async function reset() {
-    //Delete repositories folder
-    const folderContent = await fs.readdir(REPOSITORIES_PATH, { withFileTypes: true });
-    folderContent
-        .filter((item) => item.isDirectory())
-        .map((item) => fs.rm( path.resolve(REPOSITORIES_PATH, item.name), {recursive: true}));
-    //Delete from database
-    await db.sync({force: true});
-}
-
-export async function getRepositoriesFromLocalFiles(): Promise<Dirent[]> {
-    return (await fs.readdir(path.resolve(REPOSITORIES_PATH), {withFileTypes: true}))
-        .filter((dirent) => dirent.isDirectory());
-}
-
-export function resolveProjectDirectoryName(repo: Repository): string {
-    return `${repo.name}_${repo.id}`;
-}
-
-export function resolveProjectDirectoryPath(repo: Repository): string {
-    return path.resolve(REPOSITORIES_PATH, resolveProjectDirectoryName(repo));
-}
-
-export async function clearAbortedCloningRepositories(){
-    const localRepositories = await getRepositoriesFromLocalFiles();
-    const repositoriesInDatabase = await getAllRepository();
-    const repositoriesToDeleteInLocal = localRepositories
-    .filter((localRepository) => !repositoriesInDatabase.find((repository) => localRepository.name === resolveProjectDirectoryName(repository)));
-    
-    await Promise.all(repositoriesToDeleteInLocal.map(async (repository) => {
-        console.log(`Deleting ${repository.name} in local`);
-        // await repository.destroy();
-        await fs.rm( path.resolve(REPOSITORIES_PATH, repository.name), {recursive: true});
-    }));
-    
-    const repositoriesToDeleteInDB = repositoriesInDatabase
-    .filter((repository) => !localRepositories.find((localRepository) => localRepository.name === resolveProjectDirectoryName(repository)));
-    await Promise.all(repositoriesToDeleteInDB.map(async (repository) => {
-        console.log(`Deleting ${repository.name} in DB`);
-        await repository.destroy();
-    }));
-}
-
-/**
- * Extract dependencies from packageJSON
- * @param packagePath
- */
-export async function extractDependenciesFromPackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
-    const rowData = await fs.readFile(packagePath, "utf8");
-    let packageJSON: Record<string, any> = {};
+export async function removeDirectory(packagePath: PathLike) {
     try {
-        packageJSON = JSON.parse(rowData);
+        await fs.rm(packagePath, { recursive: true, force: true });
     } catch (e) {
-        console.log(`❌ Error parsing package.json: ${e}`);
+        console.error(e);
     }
-    return packageJSON.dependencies ?? {};
+}
+
+/**
+ * Return if a repository as a dependency
+ * @param packageJSONDependencies
+ * @param found
+ */
+export function hasDependency(packageJSONDependencies: Record<string,string>, found: string): boolean {
+    return packageJSONDependencies.hasOwnProperty(found)
+}
+
+/**
+ * Get repository dependencies
+ * @param projectName
+ * @param repoPath
+ */
+export async function getDependencies(projectName: string, repoPath: PathLike): Promise<Record<string, string>> {
+    const packageJSONPath = await findPackageJSONPath(repoPath);
+    if (!packageJSONPath) {
+        throw new Error('package.json not found')
+    }
+    return await parsePackageJSON(packageJSONPath);
+}
+
+/**
+ * Remove duplicates from array of objects
+ */
+export function removeDuplicates(array: any[]) {
+    return Array.from(new Set(array.map((a: any) => a.id)))
+    .map(id => {
+        return array.find((a: any) => a.id === id)
+    })
 }

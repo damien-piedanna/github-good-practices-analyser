@@ -1,15 +1,8 @@
 # si5-rimel-github-parser
 
-## Commands
+## Run the project
+`npm run run -- --help`
 
-### First time
-`npm ci`
-
-### Retrieves and clones projects from GitHub according to the query options
-`npm run fetch`
-
-### Analyze good project practices according to WebPack
-`npm run analyze`
-
-### Help on available options
-`npm run <cmd> -- --help`
+### Limitations
+- The repositories are taken by order of updated date, not randomly.
+- It is difficult to retrieve native webpack projects (non-framework) via the github api, we get false positives.
