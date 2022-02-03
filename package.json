@@ -5,9 +5,8 @@
   "main": "index.js",
   "scripts": {
     "run": "rimraf dist && tsc && node dist/main",
-    "fetch": "rimraf dist && tsc && node dist/commands/fetch",
-    "categorize": "rimraf dist && tsc && node dist/commands/categorize",
-    "analyze": "rimraf dist && tsc && node dist/commands/analyze",
+    "download": "rimraf dist/* && tsc && node dist/tools/download",
+    "scan": "rimraf dist/* && tsc && node dist/tools/scan",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

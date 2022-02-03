@@ -5,6 +5,7 @@ import fs from "fs/promises";
 export const ROOT_PATH = path.resolve(__dirname,'../..');
 export const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
 
+
 /**
  * Get all files from directory
  * @param dir - directory path
@@ -94,8 +95,5 @@ export async function getDependencies(projectName: string, repoPath: PathLike): 
  * Remove duplicates from array of objects
  */
 export function removeDuplicates(array: any[]) {
-    return Array.from(new Set(array.map((a: any) => a.id)))
-    .map(id => {
-        return array.find((a: any) => a.id === id)
-    })
+    return Array.from(new Set(array));
 }
