@@ -10,10 +10,11 @@ import {
     hasDependency, removeDirectory,
     removeDuplicates,
     REPOSITORIES_PATH,
-} from './tools/helper';
-import { db, getAllRepository, insertRepository } from "./tools/database";
+} from './helpers/helper';
+import { db, getAllRepository, insertRepository } from "./database/database";
 import * as dotenv from "dotenv";
 import AdmZip from "adm-zip";
+import { getAllProject } from './database/project.db';
 
 dotenv.config();
 
@@ -51,12 +52,12 @@ function extractArguments(): Arguments {
  * @param termInPackageJson - Search for projects containing this term in package.json
  * @param limit - Limit of projects wanted
  */
-async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number): Promise<any> {
+export async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number, options: {}): Promise<any> {
     //Optimization if limit > PER_PAGE_MAX
-    const alreadyLoadedRepositories = await getAllRepository();
+    const alreadyLoadedRepositories = await getAllProject();
 
     const repositories: any[] = [];
-    process.stdout.write(`\rRetrieve ${termInPackageJson} lib from Github... ${repositories.length}/${limit}`);
+    console.log(`🔎 Search project from GitHub`);
     let page = 1;
     // Max result is 1000
     while (repositories.length < limit && page <= 10) {
@@ -73,10 +74,11 @@ async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: 
             .slice(0, limit - repositories.length);
 
         repositories.push(...queryRepositories);
-        process.stdout.write(`\rRetrieve ${termInPackageJson} lib from Github... ${repositories.length}/${limit}`);
+        process.stdout.write(`\r🔎 Retrieve ${termInPackageJson}... ${repositories.length}/${limit}`);
         page++;
     }
-    console.log('');
+    // 
+    process.stdout.write(`\n🔎 Search ${termInPackageJson} on GitHub ended✅\n`);
     return repositories;
 }
 
@@ -92,9 +94,9 @@ function githubCall(params: any): Promise<any> {
         per_page: params.per_page,
         page: params.page,
     }).catch(async (error: any) => {
-        console.log(error);
         process.stdout.write('\n');
         let delay = 70;
+        console.log();
         while(delay > 0) {
             process.stdout.write(`\rAPI rate limit exceeded waiting ${delay} seconds`);
             // eslint-disable-next-line no-await-in-loop
@@ -109,7 +111,7 @@ function githubCall(params: any): Promise<any> {
  * Return number of contributors for a repository
  * @param repo
  */
-async function getNbContributors(repo: any): Promise<number> {
+export async function getNbContributors(repo: any): Promise<number> {
     const res = await octokit.rest.repos.listContributors({
         owner: repo.owner.login,
         repo: repo.name,
@@ -137,7 +139,10 @@ async function getNbContributors(repo: any): Promise<number> {
  * @param repo - Repository object return by Github's API
  * @param saveDetails - Save details to a json
  */
-async function downloadRepository(repo: any, saveDetails: boolean): Promise<string> {
+export async function downloadRepository(repo: any, saveDetails: boolean): Promise<string> {
+    if (!repo){
+        throw new Error('Repository is undefined');
+    }
     const repoPath = path.resolve(REPOSITORIES_PATH, `${repo.name}_${repo.id}`);
 
     await fs.mkdir(repoPath, { recursive: true });
@@ -156,7 +161,7 @@ async function downloadRepository(repo: any, saveDetails: boolean): Promise<stri
         const sourcePath = await fs.readdir(repoPath);
         await fs.rename(path.resolve(repoPath, sourcePath[0]), path.resolve(repoPath, 'source'));
     } catch (e) {
-        console.error(e);
+        throw new Error(`Error while downloading repository ${repo.name}`);
     }
 
     if (saveDetails) {
@@ -199,7 +204,7 @@ function foundCategory(dependencies: Record<string, string>) {
  * @param localRepositoryPath
  * @param dependencies
  */
-async function checkWrongPlaceForDependencies(localRepositoryPath: PathLike, dependencies: Record<string,string>) {
+async function checkWrongPlaceForDependencies(localRepositoryPath: PathLike, dependencies: Record<string,string>): Promise<number> {
     const devDependenciesFile = JSON.parse((await fs.readFile(path.resolve(__dirname, '../src/info/devDependencies.info.json'))).toString());
     const mostCommonDevDependencies: string[] = devDependenciesFile.mostCommon;
     const wrongDependencies = Object.keys(dependencies ?? {}).filter((dependency) => {
@@ -237,6 +242,7 @@ function isWebpackRepository(dependencies: Record<string, string> | {}, category
     return hasDependency(dependencies, 'webpack');
 }
 
+/**
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     const args = extractArguments();
@@ -248,7 +254,7 @@ function isWebpackRepository(dependencies: Record<string, string> | {}, category
     let repositories = [];
     for (const library of libraries) {
         // eslint-disable-next-line no-await-in-loop
-        repositories.push(...await retrieveRepositoriesFromGithub(library, perLibrary));
+        repositories.push(...await retrieveRepositoriesFromGithub(library, perLibrary, {}));
     }
     repositories = removeDuplicates(repositories);
 
@@ -293,3 +299,4 @@ function isWebpackRepository(dependencies: Record<string, string> | {}, category
     console.log('\nDone!');
 })();
 
+*/

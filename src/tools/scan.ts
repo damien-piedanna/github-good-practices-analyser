@@ -1,8 +1,8 @@
 import { Command } from 'commander';
-import { db } from './database';
-import { getAllProject, Project, saveProject } from './project.db';
+import { db } from '../database/database';
+import { getAllProject, Project, saveProject } from '../database/project.db';
 import * as fs from 'fs/promises';
-import { REPOSITORIES_PATH } from './helper';
+import { REPOSITORIES_PATH } from '../helpers/helper';
 
 const concurrentDownloads = 50;
 

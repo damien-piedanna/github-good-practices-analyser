@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { downloadRepository, retrieveRepositoriesFromGithub } from '../main';
-import { db } from './database';
-import { saveProject } from './project.db';
+import { db } from '../database/database';
+import { saveProject } from '../database/project.db';
 
 const concurrentDownloads = 50;
 
