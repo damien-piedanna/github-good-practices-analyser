@@ -11,12 +11,14 @@ import { clearAllDevDependenciesAnalyze, DevDependenciesAnalyzeAttributes, saveD
     await db.sync();
     console.log('🚀 Start of DevDependencies categorization \n');
 
+    const mostAverageDevDependencies = await findMostAverageDevDependenciesAccuracy();
+
     await clearAllDevDependenciesAnalyze();
 
     const projects = await getAllProject(['other']);
     let ended = 0;
     const tasks = projects.map(async (project: Project) => {
-        await checkWrongPlaceForDependencies(project);
+        await checkWrongPlaceForDependencies(project, mostAverageDevDependencies);
         ended++;
         process.stdout.write(`\r⌛ Pending DevDependencies anaylze... ${ended}/${projects.length}`);
     });
@@ -26,14 +28,50 @@ import { clearAllDevDependenciesAnalyze, DevDependenciesAnalyzeAttributes, saveD
 })();
 
 
+async function findMostAverageDevDependenciesAccuracy(): Promise<string[]>{
+    const dependenciesOccurences: Record<string, {
+        dependencies: number;
+        devDependencies: number;
+    }> = {};
+    const projects = await getAllProject(['other']);
+    const tasks = projects.map(async (project: Project) => {
+        const dependencies = await getStructuredDependencies(project);
+        Object.keys(dependencies.dependencies).forEach(key => {
+            dependenciesOccurences[key] = dependenciesOccurences[key] ?? {dependencies: 0, devDependencies: 0};
+            dependenciesOccurences[key].dependencies++;
+        });
+        Object.keys(dependencies.devDependencies).forEach(key => {
+            dependenciesOccurences[key] = dependenciesOccurences[key] ?? {dependencies: 0, devDependencies: 0};
+            dependenciesOccurences[key].devDependencies++;
+        });
+    });
+    await Promise.all(tasks);
+    return filtreDependancies(dependenciesOccurences);
+}
+
+function filtreDependancies(dependenciesOccurences: Record<string, {
+    dependencies: number;
+    devDependencies: number;
+}>): string[] {
+     const object = Object.entries(dependenciesOccurences)
+     .sort((a, b) => {
+        return b[1].devDependencies - a[1].devDependencies;
+    })
+    .filter((value) => {
+        return value[1].devDependencies / (value[1].devDependencies + value[1].dependencies) ?? 1 > 0.8;
+    })
+    .filter((value) => {
+        return value[1].devDependencies > 25;
+    });
+    return object.map(value => value[0]);
+}
+
 /**
  * Checks the number of misplaced dev dependencies
  * @param project
  */
- async function checkWrongPlaceForDependencies(project: Project): Promise<void> {
-    
-    const devDependenciesFile = JSON.parse((await fs.readFile(path.resolve(__dirname, '../../src/info/devDependencies.info.json'))).toString());
-    const mostCommonDevDependencies: string[] = devDependenciesFile.mostCommon;
+ async function checkWrongPlaceForDependencies(project: Project, mostAverageDevDependencies: string[]): Promise<void> {
+    const mostCommonDevDependencies: string[] = mostAverageDevDependencies;
     
     const dependencies = await getStructuredDependencies(project);
     

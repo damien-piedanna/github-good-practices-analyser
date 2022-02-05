@@ -4,6 +4,9 @@ import { db } from '../database/database';
 import { getAllProject, Project, saveProject } from '../database/project.db';
 import * as fs from 'fs/promises';
 import { REPOSITORIES_PATH, resolveLocalRepositoryName } from '../helpers/helper';
+import pLimit from 'p-limit';
+
+const limit = pLimit(50);
 
 interface ScanArguments {
     local: boolean;
@@ -51,6 +54,7 @@ function extractScanArguments(): ScanArguments {
 
 async function scanLocalRepositories(dbProjects: Project[]): Promise<void> {
     const localRepositories: string[] = await fs.readdir(REPOSITORIES_PATH);
+    let ended = 0;
     for (const localRepo of localRepositories) {
         const repositoryPath = `${REPOSITORIES_PATH}/${localRepo}`;
         const detailsPath = `${repositoryPath}/details.json`;
@@ -68,7 +72,8 @@ async function scanLocalRepositories(dbProjects: Project[]): Promise<void> {
         } else {
             await saveProject(details);
         }
-        process.stdout.write(`\r Pendings scanning local repositories: ${localRepositories.indexOf(localRepo)}/${localRepositories.length}`);
+        ended++;
+        process.stdout.write(`\r Pendings scanning local repositories: ${ended}/${localRepositories.length}`);
     }
 }
 
@@ -76,15 +81,19 @@ async function cleanUnconsistancyDBLocal(): Promise<void> {
     const localRepositories: string[] = await fs.readdir(REPOSITORIES_PATH);
     const dbProjects = await getAllProject();
     const dbRepositorires: string[] = dbProjects.map((project: Project) => resolveLocalRepositoryName(project));
-    
-    const unsavedLocalRepositories = localRepositories.filter((localRepository: string) => !dbRepositorires.includes(localRepository));
+
+    const unsavedLocalRepositories = localRepositories.filter(
+        (localRepository: string) => !dbRepositorires.includes(localRepository),
+    );
     console.log(`Unsaved local repositories: ${unsavedLocalRepositories.length}`);
     const tasks = unsavedLocalRepositories.map((repository: string) => {
         return fs.rmdir(`${REPOSITORIES_PATH}/${repository}`, { recursive: true });
     });
     await Promise.all(tasks);
 
-    const unsavedDBRepositories = dbProjects.filter((project: Project) => !localRepositories.includes(resolveLocalRepositoryName(project)));
+    const unsavedDBRepositories = dbProjects.filter(
+        (project: Project) => !localRepositories.includes(resolveLocalRepositoryName(project)),
+    );
     console.log(`Unsaved db repositories: ${unsavedDBRepositories.length}`);
     const tasks2 = unsavedDBRepositories.map((repository: Project) => {
         return Project.destroy({ where: { id: repository.id } });

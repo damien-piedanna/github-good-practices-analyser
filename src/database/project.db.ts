@@ -1,8 +1,7 @@
 import { Sequelize, Model, DataTypes, Op } from "sequelize";
-import { getNbContributors } from "../helpers/helper";
+import { countRowOfCode, getNbContributors } from "../helpers/helper";
 import { Categorization, CategorizationEnum } from "./categorize";
 import { db } from "./database";
-
 
 interface RepositoryAttributes {
     //common
@@ -13,11 +12,13 @@ interface RepositoryAttributes {
     //stats
     forks: number;
     stars: number;
+    rowsOfCode: number;
     contributors: number;
     createdAt: Date;
     updatedAt: Date;
 
 }
+
 export class Project extends Model<RepositoryAttributes> {
     declare id: number;
     declare owner: string;
@@ -25,10 +26,12 @@ export class Project extends Model<RepositoryAttributes> {
     declare language: string;
     declare forks: number;
     declare stars: number;
+    declare rowsOfCode: number;
     declare contributors: number;
     declare createdAt: Date;
     declare updatedAt: Date;
 }
+
 Project.init({
     id: {
         type: DataTypes.INTEGER,
@@ -39,6 +42,7 @@ Project.init({
     language: DataTypes.STRING,
     forks: DataTypes.INTEGER,
     stars: DataTypes.INTEGER,
+    rowsOfCode: DataTypes.BIGINT,
     contributors: DataTypes.INTEGER,
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
@@ -52,6 +56,7 @@ export async function saveProject(repo: any): Promise<Project> {
     language: repo.language,
     forks: repo.forks_count,
     stars: repo.stargazers_count,
+    rowsOfCode: await countRowOfCode(repo.name, repo.id),
     contributors: await getNbContributors(repo),
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,

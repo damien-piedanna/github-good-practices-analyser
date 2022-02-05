@@ -3,6 +3,9 @@ import { PathLike } from "fs";
 import fs from "fs/promises";
 import { Project } from "../database/project.db";
 import { Octokit } from "@octokit/rest";
+import pLimit from "p-limit";
+
+export const ForbiddenDirectory = ['node_modules','dist']; 
 
 export const ROOT_PATH = path.resolve(__dirname,'../..');
 export const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
@@ -19,7 +22,7 @@ export async function getFilesFromDirectory(dir: PathLike): Promise<string[]> {
     const files = await Promise.all(subDirs.map(async (subdir) => {
         const res = path.resolve(dir.toLocaleString(), subdir);
         const stat = await fs.lstat(res);
-        return stat.isDirectory() && !stat.isSymbolicLink() ? getFilesFromDirectory(res) : [res];
+        return stat.isDirectory() && !ForbiddenDirectory.includes(path.basename(res)) && !stat.isSymbolicLink() ? getFilesFromDirectory(res) : [res];
     }));
     if( files.length === 0 ){
         return [];
@@ -38,18 +41,19 @@ export function resolveLocalRepositoryName(project: Project): string {
  * @param name - File name
  * @param dir - File directory
  */
-export async function findFile(name: string, dir: PathLike): Promise<string | null> {
-    const files = await getFilesFromDirectory(dir);
-    const found = files.find((file) => file.endsWith(name));
-    return found ?? null;
+async function findFile(name: string | RegExp, dir: PathLike): Promise<string[]> {
+    const filePaths = await getFilesFromDirectory(dir);
+    const found = filePaths.filter((file) => path.basename(file).match(name));
+    return found;
 }
 
 /**
  * Fin package.json in a directory
  * @param repoPath
  */
-export async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike | null> {
-    return await findFile("package.json", repoPath);
+export async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike[]> {
+    const files = await findFile("package.json", repoPath);
+    return files;
 }
 
 /**
@@ -69,7 +73,7 @@ export async function parsePackageJSON(
     try {
         packageJSON = JSON.parse(rowData);
     } catch (e) {
-        console.log(`❌ Error parsing package.json: ${e}`);
+        // console.log(`❌ Error parsing package.json: ${e}`);
     }
     const dependencies = packageJSON.dependencies;
     const devDependencies = packageJSON.devDependencies;
@@ -123,11 +127,29 @@ export async function getStructuredDependencies(
     optionalDependencies: Record<string, string>;
 }> {
     const repoPath = resolveLocalPath(project);
-    const packageJSONPath = await findPackageJSONPath(repoPath);
-    if (!packageJSONPath) {
+    const packageJSONPaths = await findPackageJSONPath(repoPath);
+    if (!packageJSONPaths) {
         throw new Error(project.name + ' package.json not found');
     }
-    return parsePackageJSON(packageJSONPath).catch();
+    const packageJSONParseTasks = packageJSONPaths.map((packageJSONPath) =>
+        parsePackageJSON(packageJSONPath).catch(() => {
+            return {
+                dependencies: {},
+                devDependencies: {},
+                peerDependencies: {},
+                optionalDependencies: {},
+            };
+        }),
+    );
+    const packageJSONs = await Promise.all(packageJSONParseTasks);
+    
+    const concatPackageJSON = {
+        dependencies: packageJSONs.reduce((a, p) => ({ ...a, ...p.dependencies }), {}),
+        devDependencies: packageJSONs.reduce((a, p) => ({ ...a, ...p.devDependencies }), {}),
+        peerDependencies: packageJSONs.reduce((a, p) => ({ ...a, ...p.peerDependencies }), {}),
+        optionalDependencies: packageJSONs.reduce((a, p) => ({ ...a, ...p.optionalDependencies }), {}),
+    };
+    return concatPackageJSON;
 }
 
 /**
@@ -147,14 +169,27 @@ export function removeDuplicates(array: any[]) {
         repo: repo.name,
         per_page: 100,
     }).catch(async (error: any) => {
-        console.log(error.response.headers['x-ratelimit-reset']);
-        process.stdout.write('\n');
-        let delay = 240;
-        while(delay > 0) {
-            process.stdout.write(`\rAPI rate limit exceeded waiting ${delay} seconds`);
+        let delay: number;
+        switch (error.status) {
+            case 404:
+                return -1;
+            case 500:
+                delay = 30;
+                break;
+            case 403:
+                delay = error?.response?.headers['x-ratelimit-reset'] - (Date.now()/1000);
+                break;
+            default:
+                console.log(error);
+                delay = 30;
+                break;
+        }
+        process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        while(delay > 0){
+            delay--;
             // eslint-disable-next-line no-await-in-loop
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            delay --;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
         }
         return getNbContributors(repo);
     });
@@ -162,4 +197,32 @@ export function removeDuplicates(array: any[]) {
         return res.data.length;
     }
     return 1;
+}
+
+export async function countRowOfCode(projectName: string, projectId: string): Promise<number>{
+    const repoPath = path.resolve(REPOSITORIES_PATH, `${projectName}_${projectId}`);
+    const files = await getFilesFromDirectory(repoPath);
+    const filesPath = files
+    .filter((file) => file.match(/\.(js|ts|tsx|jsx)$/))
+    .map((file) => path.resolve(repoPath, file));
+    let nbLignes = 0;
+    try {
+        const filesLines = await Promise.all(
+            filesPath.map((file) =>
+                fs
+                    .readFile(file, {
+                        encoding: 'utf8',
+                        flag: 'r',
+                    })
+                    .catch(() => '')
+                    .then((file) => file.split('\n').length),
+            ),
+        );
+        nbLignes = filesLines.reduce((a, b) => a + b, 0);
+    } catch (_e) {
+        nbLignes = -1;
+    }
+    return nbLignes;
+
+    
 }

@@ -19,6 +19,7 @@ const concurrentDownloads = 50;
 interface DownloadArguments {
     query: string;
     limit: number;
+    sort: string;
 }
 function extractDownloadArguments(): DownloadArguments {
     const program = new Command();
@@ -27,12 +28,14 @@ function extractDownloadArguments(): DownloadArguments {
         .version('0.0.1')
         .option('--query <string>', 'Query term in package.json', 'webpack')
         .option('--limit <number>', 'Limit the number of repositories to download', '1000')
+        .option('--sort <string>', 'Sort by (updated, stars, forks)', 'updated')
         .parse(process.argv);
 
     const options = program.opts();
     return {
         query: options.query,
         limit: options.limit,
+        sort: options.sort,
     };
 }
 
@@ -40,7 +43,9 @@ function extractDownloadArguments(): DownloadArguments {
 (async () => {
     await db.sync();
     const args = extractDownloadArguments();
-    const repositories = await retrieveRepositoriesFromGithub(args.query, args.limit, {});
+    const repositories = await retrieveRepositoriesFromGithub(args.query, args.limit, {
+        sort: args.sort,
+    });
     await multiDownloadRepo(repositories);
 
     process.exit(0);
@@ -54,7 +59,9 @@ async function multiDownloadRepo(repos: any[]): Promise<any> {
             console.log('📥 Downloading project failed');
         }) 
         .then(async () => {
-            await saveProject(repo);
+            await saveProject(repo).catch((_err) => {
+                console.log('📥 Saving project failed');
+            });
         })
         .finally(async () => {
             ended++;
@@ -86,7 +93,7 @@ async function multiDownloadRepo(repos: any[]): Promise<any> {
  * @param termInPackageJson - Search for projects containing this term in package.json
  * @param limit - Limit of projects wanted
  */
-async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number, options: {}): Promise<any> {
+async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: number, options: any): Promise<any> {
     //Optimization if limit > PER_PAGE_MAX
     const alreadyLoadedRepositories = await getAllProject();
 
@@ -100,7 +107,9 @@ async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: 
             termInPackageJson: termInPackageJson,
             per_page: 100,
             page: page,
-        });
+            sort: options.sort,
+        },
+        );
         //Cleaning data
         const queryRepositories = githubResponse.data.items
             .flat()
@@ -123,7 +132,7 @@ async function retrieveRepositoriesFromGithub(termInPackageJson: string, limit: 
 function githubCall(params: any): Promise<any> {
     return octokit.rest.search.repos({
         q: params.termInPackageJson + '+in:package.json+language:javascript+language:typescript+archived:false+is:public',
-        sort: 'updated',
+        sort: params.sort,
         order: 'desc',
         per_page: params.per_page,
         page: params.page,
