@@ -14,6 +14,7 @@ module.exports = {
       'node_modules',
       'repositories',
       '.eslintrc.js',
+      '*.js',
     ],
   },
   plugins: [
