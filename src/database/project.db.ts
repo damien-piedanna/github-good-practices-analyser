@@ -1,6 +1,8 @@
-import { Sequelize, Model, DataTypes } from "sequelize";
-import { getNbContributors } from "../main";
+import { Sequelize, Model, DataTypes, Op } from "sequelize";
+import { getNbContributors } from "../helpers/helper";
+import { Categorization, CategorizationEnum } from "./categorize";
 import { db } from "./database";
+
 
 interface RepositoryAttributes {
     //common
@@ -56,6 +58,19 @@ export async function saveProject(repo: any): Promise<Project> {
    });
 }
 
-export function getAllProject(): Promise<Project[]> {
-    return Project.findAll({});
+export async function getAllProject(ignores: CategorizationEnum[] = []): Promise<Project[]> {
+    const categorization = await Categorization.findAll({
+        where: {
+            category: {
+                [Op.in]: ignores,
+            },
+        },
+    });
+    return Project.findAll({
+        where: {
+            id: {
+                [Op.notIn]: categorization.map((c) => c.id),
+            },
+        },
+    });
 }

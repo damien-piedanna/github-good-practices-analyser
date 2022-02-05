@@ -1,10 +1,14 @@
 import * as path from "path";
 import { PathLike } from "fs";
 import fs from "fs/promises";
+import { Project } from "../database/project.db";
+import { Octokit } from "@octokit/rest";
 
 export const ROOT_PATH = path.resolve(__dirname,'../..');
 export const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
-
+const octokit = new Octokit({
+    auth: process.env.GITHUB_TOKEN,
+});
 
 /**
  * Get all files from directory
@@ -22,6 +26,12 @@ export async function getFilesFromDirectory(dir: PathLike): Promise<string[]> {
     }
     return files.reduce((a, f) => a.concat(f, []));
 }
+
+
+export function resolveLocalRepositoryName(project: Project): string {
+    return `${project.name}_${project.id}`;
+}
+
 
 /**
  * Find a file in a directory
@@ -46,8 +56,15 @@ export async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike 
  * Parse package.json and extract dependencies
  * @param packagePath
  */
-export async function parsePackageJSON(packagePath: PathLike): Promise<Record<string, string>> {
-    const rowData = await fs.readFile(packagePath, "utf8");
+export async function parsePackageJSON(
+    packagePath: PathLike,
+): Promise<{
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+    peerDependencies: Record<string, string>;
+    optionalDependencies: Record<string, string>;
+}> {
+    const rowData = await fs.readFile(packagePath, 'utf8');
     let packageJSON: Record<string, any> = {};
     try {
         packageJSON = JSON.parse(rowData);
@@ -58,7 +75,12 @@ export async function parsePackageJSON(packagePath: PathLike): Promise<Record<st
     const devDependencies = packageJSON.devDependencies;
     const peerDependencies = packageJSON.peerDependencies;
     const optionalDependencies = packageJSON.optionalDependencies;
-    return {...dependencies, ...devDependencies, ...peerDependencies, ...optionalDependencies};
+    return {
+        dependencies: dependencies,
+        devDependencies: devDependencies,
+        peerDependencies: peerDependencies,
+        optionalDependencies: optionalDependencies,
+    };
 }
 
 export async function removeDirectory(packagePath: PathLike) {
@@ -78,17 +100,34 @@ export function hasDependency(packageJSONDependencies: Record<string,string>, fo
     return packageJSONDependencies.hasOwnProperty(found)
 }
 
+export function resolveLocalPath(project: Project): PathLike {
+    return path.resolve(REPOSITORIES_PATH, resolveLocalRepositoryName(project));
+}
+
 /**
  * Get repository dependencies
  * @param projectName
  * @param repoPath
  */
-export async function getDependencies(projectName: string, repoPath: PathLike): Promise<Record<string, string>> {
+export async function getDependencies(project: Project): Promise<Record<string, string>> {
+    const dependencies = await getStructuredDependencies(project);
+    return { ...dependencies.dependencies, ...dependencies.devDependencies };
+}
+
+export async function getStructuredDependencies(
+    project: Project,
+): Promise<{
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+    peerDependencies: Record<string, string>;
+    optionalDependencies: Record<string, string>;
+}> {
+    const repoPath = resolveLocalPath(project);
     const packageJSONPath = await findPackageJSONPath(repoPath);
     if (!packageJSONPath) {
-        throw new Error('package.json not found')
+        throw new Error(project.name + ' package.json not found');
     }
-    return await parsePackageJSON(packageJSONPath);
+    return parsePackageJSON(packageJSONPath).catch();
 }
 
 /**
@@ -96,4 +135,31 @@ export async function getDependencies(projectName: string, repoPath: PathLike): 
  */
 export function removeDuplicates(array: any[]) {
     return Array.from(new Set(array));
+}
+
+/**
+ * Return number of contributors for a repository
+ * @param repo
+ */
+ export async function getNbContributors(repo: any): Promise<number> {
+    const res = await octokit.rest.repos.listContributors({
+        owner: repo.owner.login,
+        repo: repo.name,
+        per_page: 100,
+    }).catch(async (error: any) => {
+        console.log(error.response.headers['x-ratelimit-reset']);
+        process.stdout.write('\n');
+        let delay = 240;
+        while(delay > 0) {
+            process.stdout.write(`\rAPI rate limit exceeded waiting ${delay} seconds`);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            delay --;
+        }
+        return getNbContributors(repo);
+    });
+    if (typeof res != "number") {
+        return res.data.length;
+    }
+    return 1;
 }
