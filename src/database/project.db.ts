@@ -79,3 +79,20 @@ export async function getAllProject(ignores: CategorizationEnum[] = []): Promise
         },
     });
 }
+
+export async function getProjectsByCategorie(filtre: CategorizationEnum): Promise<Project[]> {
+    const categorization = await Categorization.findAll({
+        where: {
+            category: {
+                [Op.eq]: filtre,
+            },
+        },
+    });
+    return Project.findAll({
+        where: {
+            id: {
+                [Op.in]: categorization.map((c) => c.id),
+            },
+        },
+    });
+}

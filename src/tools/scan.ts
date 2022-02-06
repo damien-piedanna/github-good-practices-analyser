@@ -1,16 +1,18 @@
 /* eslint-disable no-await-in-loop */
 import { Command } from 'commander';
 import { db } from '../database/database';
-import { getAllProject, Project, saveProject } from '../database/project.db';
+import { getAllProject, getProjectsByCategorie, Project, saveProject } from '../database/project.db';
 import * as fs from 'fs/promises';
-import { REPOSITORIES_PATH, resolveLocalRepositoryName } from '../helpers/helper';
+import { REPOSITORIES_PATH, resolveLocalPath, resolveLocalRepositoryName } from '../helpers/helper';
 import pLimit from 'p-limit';
+import { exists } from 'fs';
 
 const limit = pLimit(50);
 
 interface ScanArguments {
     local: boolean;
     db: boolean;
+    other: boolean;
 }
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
@@ -20,11 +22,22 @@ interface ScanArguments {
         console.log('🧹 Cleaning local db project');
         const projects = await getAllProject();
         await Project.destroy({ where: {} });
-        await scanLocalRepositories(projects);
+        try {
+            await scanLocalRepositories(projects);
+        } catch (err) {
+            console.log(`Error during scanning local repositories: ${err}`);
+            console.log(`Rollback of database...`);
+            await Project.destroy({ where: {} });
+            await Project.bulkCreate(projects);
+        }
     }
     if (args.db) {
         console.log('🧹 Cleaning unsaved local project');
         await cleanUnconsistancyDBLocal();
+    }
+    if (args.other){
+        console.log('🧹 RM sources of other projects');
+        await cleanOtherProject();
     }
     console.log('🏁 End of scan');
     process.exit(0);
@@ -37,18 +50,17 @@ function extractScanArguments(): ScanArguments {
         .version('0.0.1')
         .option('--local', 'Clean db and use LOCAL as source of truth', false)
         .option('--db', 'Use DB as source of truth and delete local unused package', false)
+        .option('--other', 'Rm sources of "other" projects', false)
         .parse(process.argv);
 
     const options = program.opts();
     if (options.local && options.db) {
         throw new Error('You cannot use --local and --db at the same time');
     }
-    if (!options.local && !options.db) {
-        throw new Error('You must use --local or --db');
-    }
     return {
         local: options.local,
         db: options.db,
+        other: options.other,
     };
 }
 
@@ -77,6 +89,29 @@ async function scanLocalRepositories(dbProjects: Project[]): Promise<void> {
     }
 }
 
+async function cleanOtherProject(): Promise<void>{
+    const projects = await getProjectsByCategorie('other');
+    console.log(`🧹 Clean Other projects: ${projects.length}`);
+    let ended = 0;
+    const tasks = projects.map(async (project: Project) => {
+        const projectPath = resolveLocalPath(project);
+        const sourcePath = `${projectPath}/source/`;
+        const isExist = await fs.stat(sourcePath)
+        .then(fsStat => {
+            return fsStat.isDirectory();
+        })
+        .catch(err => {
+            return false;
+        });
+        if (isExist) {
+            await fs.rm(sourcePath, { recursive: true });
+        }
+        ended++;
+        process.stdout.write(`\r🧹 Cleaning other projects: ${ended}/${projects.length}`);
+    });
+    await Promise.all(tasks);
+}
+
 async function cleanUnconsistancyDBLocal(): Promise<void> {
     const localRepositories: string[] = await fs.readdir(REPOSITORIES_PATH);
     const dbProjects = await getAllProject();
@@ -87,7 +122,7 @@ async function cleanUnconsistancyDBLocal(): Promise<void> {
     );
     console.log(`Unsaved local repositories: ${unsavedLocalRepositories.length}`);
     const tasks = unsavedLocalRepositories.map((repository: string) => {
-        return fs.rmdir(`${REPOSITORIES_PATH}/${repository}`, { recursive: true });
+        return fs.rm(`${REPOSITORIES_PATH}/${repository}`, { recursive: true });
     });
     await Promise.all(tasks);
 

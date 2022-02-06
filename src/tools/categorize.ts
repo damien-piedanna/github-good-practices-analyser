@@ -12,6 +12,7 @@ import { getDependencies, hasDependency } from '../helpers/helper';
 
     const projects = await getAllProject();
     let ended = 0;
+    process.stdout.write(`\r⌛ Categorization... ${ended}/${projects.length}`);
     const tasks = projects.map(async (project: Project) => {
         const dependencies = await getDependencies(project).catch(() => { return {} });
         const category = foundCategory(dependencies);

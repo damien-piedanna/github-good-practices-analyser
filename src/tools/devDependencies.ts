@@ -1,11 +1,8 @@
-import { PathLike } from 'fs';
-import { CategorizationEnum, categorizeProject, clearAllCategorization } from '../database/categorize';
 import { db } from '../database/database';
 import { getAllProject, Project } from '../database/project.db';
-import { getStructuredDependencies, hasDependency, resolveLocalPath } from '../helpers/helper';
-import * as fs from 'fs/promises';
-import path from 'path';
+import { getStructuredDependencies } from '../helpers/helper';
 import { clearAllDevDependenciesAnalyze, DevDependenciesAnalyzeAttributes, saveDevDependenciesAnalyze } from '../database/devDependenciesAnalyze';
+
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     await db.sync();
@@ -27,7 +24,9 @@ import { clearAllDevDependenciesAnalyze, DevDependenciesAnalyzeAttributes, saveD
     process.exit(0);
 })();
 
-
+/**
+ * Find the most common dev dependencies
+ */
 async function findMostAverageDevDependenciesAccuracy(): Promise<string[]>{
     const dependenciesOccurences: Record<string, {
         dependencies: number;
@@ -49,6 +48,9 @@ async function findMostAverageDevDependenciesAccuracy(): Promise<string[]>{
     return filtreDependancies(dependenciesOccurences);
 }
 
+/**
+ * Filter dependancies to keep only the most common ones
+ */
 function filtreDependancies(dependenciesOccurences: Record<string, {
     dependencies: number;
     devDependencies: number;
