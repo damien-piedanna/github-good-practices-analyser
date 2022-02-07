@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"search.exclude": {
+			"**/.git": true,
+			"**/node_modules": true,
+			"**/tmp": true,
+			"repositories/**": true
+		},
+	}
+}

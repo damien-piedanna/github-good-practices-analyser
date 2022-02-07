@@ -47,6 +47,10 @@ type EsLintData = {
     plugins: string[];
     error: number;
 }
+/**
+ * Extract all eslint rules and plugins from project
+ * Handles eslintrc.js, eslintrc.ts, eslintrc.json, eslintrc.yml, eslintrc.yaml
+ */
 async function extractEsLintConfig(project: Project): Promise<EsLintData>{
     const esLintFiles = await getESLintFiles(project);
     if (esLintFiles.length === 0) {

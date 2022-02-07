@@ -14,8 +14,6 @@ const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
 });
 
-const concurrentDownloads = 50;
-
 interface DownloadArguments {
     query: string;
     limit: number;
@@ -51,7 +49,11 @@ function extractDownloadArguments(): DownloadArguments {
     process.exit(0);
 })();
 
-async function multiDownloadRepo(repos: any[]): Promise<any> {
+/**
+ * Make parallel download of repositories
+ * @params concurrentDownloads Max concurrent downloads is concurrentDownloads
+ */
+async function multiDownloadRepo(repos: any[], concurrentDownloads = 50): Promise<any> {
     function recursiveLoopingDownload(repositoriesStackTask: any[], repo: any): Promise<any> {
         return downloadRepository(repo, true)
         .catch((_err) => {

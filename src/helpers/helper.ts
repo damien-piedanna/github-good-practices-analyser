@@ -30,14 +30,17 @@ export async function getFilesFromDirectory(dir: PathLike): Promise<string[]> {
     return files.reduce((a, f) => a.concat(f, []));
 }
 
-
+/**
+ * Get local repository name for a project 
+ * Ex: angular-first_3195709375
+ */
 export function resolveLocalRepositoryName(project: Project): string {
     return `${project.name}_${project.id}`;
 }
 
 
 /**
- * Find a file in a directory
+ * Find files in a directory matching a regex
  * @param name - File name
  * @param dir - File directory
  */
@@ -47,13 +50,17 @@ async function findFile(name: string | RegExp, dir: PathLike): Promise<string[]>
     return found;
 }
 
+/**
+ * Find all files in a project matching a regex
+ * Alias of findFile but with project as parameter
+ */
 export function findFileInProject(name: string | RegExp, project: Project): Promise<string[]> {
     const projectPath = resolveLocalPath(project); 
     return findFile(name, projectPath);
 }
 
 /**
- * Fin package.json in a directory
+ * Find all package.json files in a directory
  * @param repoPath
  */
 export async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike[]> {
@@ -62,7 +69,7 @@ export async function findPackageJSONPath(repoPath: PathLike): Promise<PathLike[
 }
 
 /**
- * Parse package.json and extract dependencies
+ * Parse package.json and extract dependencies, devDependencies, peerDependencies, optionalDependencies
  * @param packagePath
  */
 export async function parsePackageJSON(
@@ -92,14 +99,6 @@ export async function parsePackageJSON(
     };
 }
 
-export async function removeDirectory(packagePath: PathLike) {
-    try {
-        await fs.rm(packagePath, { recursive: true, force: true });
-    } catch (e) {
-        console.error(e);
-    }
-}
-
 /**
  * Return if a repository as a dependency
  * @param packageJSONDependencies
@@ -109,6 +108,9 @@ export function hasDependency(packageJSONDependencies: Record<string,string>, fo
     return packageJSONDependencies.hasOwnProperty(found)
 }
 
+/**
+ * Resolve path to a project with project entity
+ */
 export function resolveLocalPath(project: Project): PathLike {
     return path.resolve(REPOSITORIES_PATH, resolveLocalRepositoryName(project));
 }
@@ -123,6 +125,10 @@ export async function getDependencies(project: Project): Promise<Record<string, 
     return { ...dependencies.dependencies, ...dependencies.devDependencies };
 }
 
+/**
+ * Get all dependencies from a project
+ * (works with several files package.json)
+ */
 export async function getStructuredDependencies(
     project: Project,
 ): Promise<{
@@ -204,6 +210,10 @@ export function removeDuplicates(array: any[]) {
     return 1;
 }
 
+/**
+ * Return number of row of code for a repository
+ * Matching only files with extension .js, .ts, .jsx, .tsx
+ */
 export async function countRowOfCode(projectName: string, projectId: string): Promise<number>{
     const repoPath = path.resolve(REPOSITORIES_PATH, `${projectName}_${projectId}`);
     const files = await getFilesFromDirectory(repoPath);
