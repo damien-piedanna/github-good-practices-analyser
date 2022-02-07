@@ -47,6 +47,11 @@ async function findFile(name: string | RegExp, dir: PathLike): Promise<string[]>
     return found;
 }
 
+export function findFileInProject(name: string | RegExp, project: Project): Promise<string[]> {
+    const projectPath = resolveLocalPath(project); 
+    return findFile(name, projectPath);
+}
+
 /**
  * Fin package.json in a directory
  * @param repoPath

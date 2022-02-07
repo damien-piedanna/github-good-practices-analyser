@@ -8,8 +8,8 @@
     "download": "rimraf dist/* && tsc && node dist/tools/download",
     "scan": "rimraf dist/* && tsc && node dist/tools/scan",
     "categorize": "rimraf dist/* && tsc && node dist/tools/categorize",
-    "analyze:1": "rimraf dist/* && tsc && node dist/tools/devDependencies",
-
+    "analyze:1": "rimraf dist/* && tsc && node dist/tools/devDependenciesAnalyze",
+    "analyze:2": "rimraf dist/* && tsc && node dist/tools/eslintAnalyze",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -18,13 +18,15 @@
     "@octokit/rest": "^18.12.0",
     "adm-zip": "^0.5.9",
     "commander": "^8.3.0",
+    "comment-json": "^4.2.2",
     "dotenv": "^15.0.0",
     "fined": "^2.0.0",
     "p-limit": "3.1.0",
     "rimraf": "^3.0.2",
     "sequelize": "^6.14.1",
     "sqlite3": "^5.0.2",
-    "typescript": "^4.5.4"
+    "typescript": "^4.5.4",
+    "yaml": "^1.10.2"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.4.34",
