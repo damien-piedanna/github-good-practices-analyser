@@ -1,5 +1,5 @@
 import { Sequelize, Model, DataTypes, Op } from "sequelize";
-import { countRowOfCode, getNbContributors } from "../helpers/helper";
+import { countRowOfCode, getNbContributors, isMaintened } from "../helpers/helper";
 import { Categorization, CategorizationEnum } from "./categorize";
 import { db } from "./database";
 
@@ -16,6 +16,7 @@ interface RepositoryAttributes {
     contributors: number;
     createdAt: Date;
     updatedAt: Date;
+    isMaintened: boolean;
 
 }
 
@@ -30,6 +31,7 @@ export class Project extends Model<RepositoryAttributes> {
     declare contributors: number;
     declare createdAt: Date;
     declare updatedAt: Date;
+    declare isMaintened: boolean;
 }
 
 Project.init({
@@ -46,6 +48,7 @@ Project.init({
     contributors: DataTypes.INTEGER,
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
+    isMaintened: DataTypes.BOOLEAN,
 }, { sequelize: db, modelName: 'project' });
 
 export async function saveProject(repo: any): Promise<Project> {
@@ -60,6 +63,7 @@ export async function saveProject(repo: any): Promise<Project> {
     contributors: await getNbContributors(repo),
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,
+    isMaintened: await isMaintened(repo),
    });
 }
 

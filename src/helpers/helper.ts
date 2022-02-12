@@ -5,13 +5,15 @@ import { Project } from "../database/project.db";
 import { Octokit } from "@octokit/rest";
 import pLimit from "p-limit";
 
-export const ForbiddenDirectory = ['node_modules','dist']; 
+export const ForbiddenDirectory = ['node_modules','dist'];
 
 export const ROOT_PATH = path.resolve(__dirname,'../..');
 export const REPOSITORIES_PATH = path.resolve(ROOT_PATH,'repositories');
 const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
 });
+
+const ONE_YEAR_IN_MS: number = 31536000000;
 
 /**
  * Get all files from directory
@@ -240,4 +242,166 @@ export async function countRowOfCode(projectName: string, projectId: string): Pr
     return nbLignes;
 
     
+}
+
+/**
+ * Define if a repo is still maintened
+ * 
+ * @param repo 
+ * @returns 
+ */
+export async function isMaintened(repo: any): Promise<boolean>{
+
+    const releases : any = await getRepoRelease(repo);
+    if(releases.data.length < 3 || new Date(Date.now()-ONE_YEAR_IN_MS)>new Date(Date.parse(releases.data[0].created_at))) {
+        const commits = await getAllCommits(repo);
+        return new Date(Date.now()-ONE_YEAR_IN_MS) < new Date(Date.parse(commits.data[0].commit.author.date));
+    }
+    return true;
+}
+
+export async function getAllCommits(repo:any): Promise<any>{
+    return await octokit.rest.repos.listCommits({
+        owner: repo.owner.login,
+        repo: repo.name,
+        per_page: 100,
+    }).catch(async (error: any) => {
+        let delay: number;
+        switch (error.status) {
+            case 404:
+                return -1;
+            case 500:
+                delay = 30;
+                break;
+            case 403:
+                delay = error?.response?.headers['x-ratelimit-reset'] - (Date.now()/1000);
+                break;
+            default:
+                console.log(error);
+                delay = 30;
+                break;
+        }
+        process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        while(delay > 0){
+            delay--;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        }
+        return getAllCommits(repo);
+    });
+}
+
+export async function getTagDetail(repo:any, tag: any): Promise<any>{
+    // Doesnt work !!!
+   return await octokit.rest.git.getTag({
+        owner: repo.owner.login,
+        repo: repo.name,
+        tag_sha: tag.commit.sha,
+      }).catch(async (error: any) => {
+        let delay: number;
+        switch (error.status) {
+            case 404:
+                console.log("404")
+                return -1;
+            case 500:
+                delay = 30;
+                break;
+            case 403:
+                delay = error?.response?.headers['x-ratelimit-reset'] - (Date.now()/1000);
+                break;
+            default:
+                console.log(error);
+                delay = 30;
+                break;
+        }
+        process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        while(delay > 0){
+            delay--;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        }
+        return getTagDetail(repo, tag);
+    });;
+}
+
+export function filterTags(tags:any): any[]
+{
+    const regex = new RegExp('^v', 'i')
+    let newTags = JSON.parse(JSON.stringify(tags));
+    newTags.data = [];
+
+    tags.data.forEach((tag:any) => {
+        if(regex.test(tag.name)){
+            newTags.data.push(tag);
+        }
+    });
+    return newTags;
+}
+
+export async function getRepoRelease(repo:any): Promise<any> {
+    return await octokit.rest.repos.listReleases({
+        owner: repo.owner.login,
+        repo: repo.name,
+        per_page: 100,
+    }).catch(async (error: any) => {
+        let delay: number;
+        switch (error.status) {
+            case 404:
+                return -1;
+            case 500:
+                delay = 30;
+                break;
+            case 403:
+                delay = error?.response?.headers['x-ratelimit-reset'] - (Date.now()/1000);
+                break;
+            default:
+                console.log(error);
+                delay = 30;
+                break;
+        }
+        process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        while(delay > 0){
+            delay--;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        }
+        return getRepoRelease(repo);
+    });
+
+
+}
+
+export async function getRepoTags(repo:any): Promise<any> {
+    return await octokit.rest.repos.listTags({
+        owner: repo.owner.login,
+        repo: repo.name,
+        per_page: 100,
+    }).catch(async (error: any) => {
+        let delay: number;
+        switch (error.status) {
+            case 404:
+                return -1;
+            case 500:
+                delay = 30;
+                break;
+            case 403:
+                delay = error?.response?.headers['x-ratelimit-reset'] - (Date.now()/1000);
+                break;
+            default:
+                console.log(error);
+                delay = 30;
+                break;
+        }
+        process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        while(delay > 0){
+            delay--;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            process.stdout.write(`\r⏳ Delay for ${delay.toFixed(0)} seconds`);
+        }
+        return getRepoTags(repo);
+    });
 }

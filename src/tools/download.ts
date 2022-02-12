@@ -57,7 +57,6 @@ async function multiDownloadRepo(repos: any[], concurrentDownloads = 50): Promis
     function recursiveLoopingDownload(repositoriesStackTask: any[], repo: any): Promise<any> {
         return downloadRepository(repo, true)
         .catch((_err) => {
-            ended++;
             console.log('📥 Downloading project failed');
         }) 
         .then(async () => {
