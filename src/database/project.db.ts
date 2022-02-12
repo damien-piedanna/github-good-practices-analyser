@@ -1,5 +1,5 @@
 import { Sequelize, Model, DataTypes, Op } from "sequelize";
-import { countRowOfCode, getNbContributors, isMaintened } from "../helpers/helper";
+import { countRowOfCode, getNbContributors, isMaintened, isMinifyJs,isMinifyCss } from "../helpers/helper";
 import { Categorization, CategorizationEnum } from "./categorize";
 import { db } from "./database";
 
@@ -17,7 +17,8 @@ interface RepositoryAttributes {
     createdAt: Date;
     updatedAt: Date;
     isMaintened: boolean;
-
+    minifyJs: boolean;
+    minifyCss: boolean;
 }
 
 export class Project extends Model<RepositoryAttributes> {
@@ -32,6 +33,8 @@ export class Project extends Model<RepositoryAttributes> {
     declare createdAt: Date;
     declare updatedAt: Date;
     declare isMaintened: boolean;
+    declare minifyJs: boolean;
+    declare minifyCss: boolean;
 }
 
 Project.init({
@@ -49,6 +52,8 @@ Project.init({
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
     isMaintened: DataTypes.BOOLEAN,
+    minifyJs: DataTypes.BOOLEAN,
+    minifyCss: DataTypes.BOOLEAN,
 }, { sequelize: db, modelName: 'project' });
 
 export async function saveProject(repo: any): Promise<Project> {
@@ -64,6 +69,8 @@ export async function saveProject(repo: any): Promise<Project> {
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,
     isMaintened: await isMaintened(repo),
+    minifyJs: await isMinifyJs(repo.name, repo.id),
+    minifyCss: await isMinifyCss(repo.name, repo.id),
    });
 }
 

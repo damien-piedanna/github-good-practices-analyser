@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import { Project } from "../database/project.db";
 import { Octokit } from "@octokit/rest";
 import pLimit from "p-limit";
+import { CategorizationEnum } from "../database/categorize";
 
 export const ForbiddenDirectory = ['node_modules','dist'];
 
@@ -14,6 +15,10 @@ const octokit = new Octokit({
 });
 
 const ONE_YEAR_IN_MS: number = 31536000000;
+
+const MINIFY_JS_PACKAGE : string[] = ["express-uglify-middleware","babel-minify", "google-closure-compiler", "terser", "uglify-js", "uglify-es", "yuicompressor", "yui"];
+
+const MINIFY_CSS_PACKAGE: string[] = ["clean-css", "crass", "cssnano", "csso", "@node-minify/sqwish", "sqwish", "yuicompressor", "yui"];
 
 /**
  * Get all files from directory
@@ -131,18 +136,15 @@ export async function getDependencies(project: Project): Promise<Record<string, 
  * Get all dependencies from a project
  * (works with several files package.json)
  */
-export async function getStructuredDependencies(
-    project: Project,
-): Promise<{
+export async function getStructuredDependenciesFromPath(path: PathLike): Promise<{
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
     peerDependencies: Record<string, string>;
     optionalDependencies: Record<string, string>;
-}> {
-    const repoPath = resolveLocalPath(project);
-    const packageJSONPaths = await findPackageJSONPath(repoPath);
+}>{
+    const packageJSONPaths = await findPackageJSONPath(path);
     if (!packageJSONPaths) {
-        throw new Error(project.name + ' package.json not found');
+        throw new Error(' package.json not found');
     }
     const packageJSONParseTasks = packageJSONPaths.map((packageJSONPath) =>
         parsePackageJSON(packageJSONPath).catch(() => {
@@ -163,6 +165,22 @@ export async function getStructuredDependencies(
         optionalDependencies: packageJSONs.reduce((a, p) => ({ ...a, ...p.optionalDependencies }), {}),
     };
     return concatPackageJSON;
+}
+
+/**
+ * Get all dependencies from a project
+ * (works with several files package.json)
+ */
+export async function getStructuredDependencies(
+    project: Project,
+): Promise<{
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+    peerDependencies: Record<string, string>;
+    optionalDependencies: Record<string, string>;
+}> {
+    const repoPath = resolveLocalPath(project);
+    return await getStructuredDependenciesFromPath(repoPath);
 }
 
 /**
@@ -242,6 +260,58 @@ export async function countRowOfCode(projectName: string, projectId: string): Pr
     return nbLignes;
 
     
+}
+
+export async function isMinifyJs(projectName: string, projectId: string): Promise<boolean>{
+    const repoPath = path.resolve(REPOSITORIES_PATH, `${projectName}_${projectId}`);
+
+    const structuredDependencies = await getStructuredDependenciesFromPath(repoPath).catch();
+    if(!structuredDependencies){
+        return false;
+    }
+
+    const dependencies = {...structuredDependencies.dependencies, ...structuredDependencies.devDependencies};
+
+    const projectCategory = foundCategory(dependencies);
+    if(projectCategory === "angular" || projectCategory === "vue"){
+        return true;
+    }
+
+    const dependenciesKeys = Object.keys(dependencies);
+    MINIFY_JS_PACKAGE.forEach((minifyDependency:any) => {
+        if(dependenciesKeys.includes(minifyDependency)){
+            console.log("trouvé !!", minifyDependency)
+            return true;
+        }
+    });
+
+    return false;
+}
+
+export async function isMinifyCss(projectName: string, projectId: string): Promise<boolean>{
+    const repoPath = path.resolve(REPOSITORIES_PATH, `${projectName}_${projectId}`);
+
+    const structuredDependencies = await getStructuredDependenciesFromPath(repoPath).catch();
+    if(!structuredDependencies){
+        return false;
+    }
+
+    const dependencies = {...structuredDependencies.dependencies, ...structuredDependencies.devDependencies};
+
+    const projectCategory = foundCategory(dependencies);
+    if(projectCategory === "angular" || projectCategory === "vue"){
+        return true;
+    }
+
+    const dependenciesKeys = Object.keys(dependencies);
+    MINIFY_CSS_PACKAGE.forEach((minifyDependency:any) => {
+        if(dependenciesKeys.includes(minifyDependency)){
+            console.log("trouvé !!", minifyDependency)
+            return true;
+        }
+    });
+
+    return false;
 }
 
 /**
@@ -404,4 +474,35 @@ export async function getRepoTags(repo:any): Promise<any> {
         }
         return getRepoTags(repo);
     });
+}
+
+/**
+ * Found repository category
+ * @param dependencies
+ */
+ export function foundCategory(dependencies: Record<string, string>): CategorizationEnum {
+    switch (true) {
+        case hasDependency(dependencies, '@angular/core'): {
+            return "angular";
+        }
+        case hasDependency(dependencies, 'vue'): {
+            return "vue";
+        }
+        case hasDependency(dependencies, '@nestjs/core'): {
+            return "nestjs";
+        }
+        case hasDependency(dependencies, 'next'): {
+            return "next";
+        }
+        case hasDependency(dependencies, 'react'): {
+            return "react";
+        }
+        case hasDependency(dependencies, 'express'): {
+            return "express";
+        }
+        case hasDependency(dependencies, 'webpack'): {
+            return "native";
+        }
+    }
+    return "other";
 }

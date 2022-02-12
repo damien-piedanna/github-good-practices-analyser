@@ -1,7 +1,7 @@
 import { CategorizationEnum, categorizeProject, clearAllCategorization } from '../database/categorize';
 import { db } from '../database/database';
 import { getAllProject, Project } from '../database/project.db';
-import { getDependencies, hasDependency } from '../helpers/helper';
+import { foundCategory, getDependencies, hasDependency } from '../helpers/helper';
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
@@ -24,39 +24,6 @@ import { getDependencies, hasDependency } from '../helpers/helper';
     console.log('\n🏁 End of categorization');
     process.exit(0);
 })();
-
-
-/**
- * Found repository category
- * @param dependencies
- */
- function foundCategory(dependencies: Record<string, string>): CategorizationEnum {
-    switch (true) {
-        case hasDependency(dependencies, '@angular/core'): {
-            return "angular";
-        }
-        case hasDependency(dependencies, 'vue'): {
-            return "vue";
-        }
-        case hasDependency(dependencies, '@nestjs/core'): {
-            return "nestjs";
-        }
-        case hasDependency(dependencies, 'next'): {
-            return "next";
-        }
-        case hasDependency(dependencies, 'react'): {
-            return "react";
-        }
-        case hasDependency(dependencies, 'express'): {
-            return "express";
-        }
-        case hasDependency(dependencies, 'webpack'): {
-            return "native";
-        }
-    }
-    return "other";
-}
-
 
 
 /**
