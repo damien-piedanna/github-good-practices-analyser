@@ -137,7 +137,7 @@ Ces résultats sont surprenants. Nous nous attendions à des pourcentages plus �
 
 On remarque qu'en moyenne les frameworks backend respectent mieux ces deux bonnes pratiques que les framework frontend. L’utilisation d’un framework tend à pousser au respect des bonnes pratiques. Néanmoins certains chiffres sont à relativiser au vu du faible nombre de projets dans le set de données (NestJs).
 
-![Figure 7](./asset/figure-7-bonnes-pratiques-contributeurs-%.png)
+![Figure 7](./asset/figure-7-bonnes-pratiques-contributeurs.png)
 
 L’utilisation d’un Linter tend à augmenter avec le nombre de contributeurs ce qui était attendu. Mais bizarrement, les plus gros projets ne semblent pas respecter la seconde bonne pratique étudiée ici à savoir les dev dependency.
 
@@ -156,7 +156,7 @@ Dans la suite de cette étude, nous allons vous présenter les résultats affin�
 A la place d’avoir un résultat binaire, nous avons choisi d’ajouter de la nuance pour se rendre compte du taux de dépendance mal placé dans un projet. Cela nous paraît être un meilleur indicateur car notre façon de catégoriser une dépendance comme étant une dépendance de développement peut être remise en question. 
 
 
-![Figure 9](./asset/figure-9-%-mauvaise-dependances-v2.png)
+![Figure 9](./asset/figure-9-mauvaise-dependances-v2.png)
 
 
 | Catégorie         | Dépendance mal placé en % | Nb Projets |
