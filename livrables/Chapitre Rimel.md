@@ -227,6 +227,6 @@ Tous les scripts possèdent l’option `--help` pour afficher la liste des optio
 
 « **Vue.js - The Progressive JavaScript Framework | Vue.js** ». Consulté le 28 février 2022. https://vuejs.org/.
 
-webpack. « **Webpack** ». Consulté le 28 février 2022. https://webpack.js.org/.
+« **Webpack** ». Consulté le 28 février 2022. https://webpack.js.org/.
 
 « **10 Best JavaScript Minifiers Libraries in 2022 | Openbase** ». Consulté le 28 février 2022. https://openbase.com/categories/js/best-javascript-minifiers-libraries.
