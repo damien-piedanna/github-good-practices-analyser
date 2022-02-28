@@ -3,6 +3,8 @@ repositories/*
 .idea
 database.sqlite
 
+**/.DS_Store
+
 # Logs
 logs
 *.log
