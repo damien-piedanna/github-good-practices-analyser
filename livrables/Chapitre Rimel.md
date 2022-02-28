@@ -91,7 +91,7 @@ Nous avons ensuite déterminé pour chacune des bonnes pratiques et des framewor
 Nous avons eu quelques difficultés à réaliser ce travail sur les différents frameworks choisis. En effet, la majorité de ceux-ci cachent leur utilisation et définissent des configurations par défaut. Les techniques normales de détection ne fonctionnent donc pas toutes avec ceux-ci et nous avons donc du lister la façon de faire pour chacun d’entre eux.
 Ci-dessous, un exemple de ce travail.
 
-![Figure 1](./assets/figure-1-bonnes-pratiques-tableau.png)
+![Figure 1](./asset/figure-1-bonnes-pratiques-tableau.png)
 
 ## Échantillonnage des projets :
 
@@ -119,29 +119,29 @@ Pour pouvoir déterminer si nos hypothèses étaient justes, nous avons mis en p
 
 Nous avons lancé l’analyse sur un ensemble de données dont voici les caractéristiques :
 
-<img src="./assets/figure-3-repartition-stars.png" alt="figure 2" width="200"/>
-<img src="./assets/figure-3-repartition-stars.png" alt="figure 3" width="200"/>
-<img src="./assets/figure-4-repartition-contributeur.png" alt="figure 4" width="200"/>
+<img src="./asset/figure-3-repartition-stars.png" alt="figure 2" width="200"/>
+<img src="./asset/figure-3-repartition-stars.png" alt="figure 3" width="200"/>
+<img src="./asset/figure-4-repartition-contributeur.png" alt="figure 4" width="200"/>
 
 On peut remarquer certains biais dans l’ensemble de données utilisé. Tout d’abord, certains frameworks sont peu voir très peu représentés ce qui est le cas de Express et NestJs. Les résultats que l’on va obtenir sur ces frameworks sont donc peu fiables. Naturellement, les projets ayant 0 étoile sont les plus nombreux ce qui semble normal compte tenu de la façon dont nous avons sélectionné les projets (par date de mise à jour). Pour finir, les projets ayant moins de 10 contributeurs sont les plus nombreux. Ce qui peut rendre les résultats pour les projets ayant le plus de contributeurs peu fiables aussi.
 Nous avons étudié l’utilisation d’un Linter et le respect des DevPackage dans les Devdepencies. Les résultats sont binaires, soit il respecte soit non. Pour les DevPackage, cela veut dire qu’il suffit qu’un seul package soit mal placé pour catégoriser le projet comme ne respectant pas cette bonne pratique.
 
 Néanmoins, voici les premiers résultats obtenus :
 
-![Figure 5](./assets/figure-5-respect-des-bonnes-pratiques.png)
+![Figure 5](./asset/figure-5-respect-des-bonnes-pratiques.png)
 
 Ces résultats sont surprenants. Nous nous attendions à des pourcentages plus élevés que ceux constatés. On remarque aussi que la bonne pratique des dev dependency n’est presque pas respectée selon nos critères de vérification.
 
 
-![Figure 6](./assets/figure-6-bonnes-pratiques-framework-pourcentage.png)
+![Figure 6](./asset/figure-6-bonnes-pratiques-framework-pourcentage.png)
 
 On remarque qu'en moyenne les frameworks backend respectent mieux ces deux bonnes pratiques que les framework frontend. L’utilisation d’un framework tend à pousser au respect des bonnes pratiques. Néanmoins certains chiffres sont à relativiser au vu du faible nombre de projets dans le set de données (NestJs).
 
-![Figure 7](./assets/figure-7-bonnes-pratiques-contributeurs-%.png)
+![Figure 7](./asset/figure-7-bonnes-pratiques-contributeurs-%.png)
 
 L’utilisation d’un Linter tend à augmenter avec le nombre de contributeurs ce qui était attendu. Mais bizarrement, les plus gros projets ne semblent pas respecter la seconde bonne pratique étudiée ici à savoir les dev dependency.
 
-![Figure 8](./assets/figure-8-bonnes-pratiques-stars.png)
+![Figure 8](./asset/figure-8-bonnes-pratiques-stars.png)
 
 L’utilisation d’un Linter tend à augmenter avec le nombre d’étoiles. Mais encore une fois, les projets les plus aimés ne semblent pas respecter la seconde bonne pratique.
 
@@ -156,7 +156,7 @@ Dans la suite de cette étude, nous allons vous présenter les résultats affin�
 A la place d’avoir un résultat binaire, nous avons choisi d’ajouter de la nuance pour se rendre compte du taux de dépendance mal placé dans un projet. Cela nous paraît être un meilleur indicateur car notre façon de catégoriser une dépendance comme étant une dépendance de développement peut être remise en question. 
 
 
-![Figure 9](./assets/figure-9-%-mauvaise-dependances-v2.png)
+![Figure 9](./asset/figure-9-%-mauvaise-dependances-v2.png)
 
 
 | Catégorie         | Dépendance mal placé en % | Nb Projets |
@@ -173,7 +173,7 @@ De ces résultats, on peut tirer quelques conclusions. Tout d’abord, la diffé
 Une explication à ces résultats pourrait venir du fait qu’un projet qui n’utilise pas de framework est surement de plus petite envergure et son nombre de dépendance doit être moins important ce qui implique moins de chance d’en avoir des mal placés.
 Ces résultats nous paraissent aller à l’encontre de ce que nous attendions. Nous avons voulu savoir si lorsqu’on réduisait l’ensemble de données à des projets étant encore maintenue nous avions les mêmes résultats.
 
-![Figure 10](./assets/figure-10-pourcentage-dependances-mal-placees-framework.png)
+![Figure 10](./asset/figure-10-pourcentage-dependances-mal-placees-framework.png)
 
 
 | Catégorie         | Dépendance mal placé en % | Nb Projets |
