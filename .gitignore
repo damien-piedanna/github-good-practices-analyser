@@ -1,7 +1,6 @@
 #Custom
 repositories/*
 .idea
-database.sqlite
 
 # Logs
 logs

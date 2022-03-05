@@ -63,7 +63,7 @@ function filtreDependancies(dependenciesOccurences: Record<string, {
         return value[1].devDependencies / (value[1].devDependencies + value[1].dependencies) ?? 1 > 0.8;
     })
     .filter((value) => {
-        return value[1].devDependencies > 25;
+        return value[1].devDependencies > 10;
     });
     return object.map(value => value[0]);
 }
