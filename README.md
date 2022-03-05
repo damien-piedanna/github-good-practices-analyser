@@ -1,4 +1,5 @@
-# si5-rimel-github-parser
+# Github good practices analyzer
+> POLYTECH ~ SI5 ~ RIMEL
 
 ## Run the project
  - Wrap download / categorize / analyze
